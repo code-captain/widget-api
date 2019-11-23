@@ -16,7 +16,7 @@ public class WidgetController {
 
     private final WidgetService service;
 
-    @GetMapping(path = "/")
+    @GetMapping
     public ResponseEntity<Collection<WidgetDto>> getAll() {
         return ResponseEntity.ok(service.getAll());
     }
@@ -37,7 +37,7 @@ public class WidgetController {
         if (current == null) {
             return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.ok(service.save(widget));
+        return ResponseEntity.ok(service.update(id, widget));
     }
 
     @DeleteMapping(path = "/{id}")
@@ -47,6 +47,6 @@ public class WidgetController {
             return ResponseEntity.notFound().build();
         }
         service.delete(id);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok().build();
     }
 }

@@ -33,6 +33,7 @@ public class WidgetDto {
     @JsonProperty(value = "height")
     private long height;
 
+    @JsonProperty(value = "modifiedAt")
     @JsonFormat(pattern="yyyy-MM-dd HH:mm:ss")
     private Date modifiedAt;
 

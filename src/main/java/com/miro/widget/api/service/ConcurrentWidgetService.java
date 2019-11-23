@@ -21,17 +21,11 @@ public class ConcurrentWidgetService implements WidgetService {
 
     @Override
     public WidgetDto getById(UUID uuid) {
-        long stamp = sl.tryOptimisticRead();
-        WidgetDto widget = WidgetDto.fromEntity(widgetMapById.get(uuid));
-        if (!sl.validate(stamp)) {
-            stamp = sl.readLock();
-            try {
-                widget = WidgetDto.fromEntity(widgetMapById.get(uuid));
-            } finally {
-                sl.unlockRead(stamp);
-            }
+        Widget widget = widgetMapById.get(uuid);
+        if (widget == null) {
+            return null;
         }
-        return widget;
+        return WidgetDto.fromEntity(widget);
     }
 
     @Override
