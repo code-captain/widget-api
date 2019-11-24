@@ -1,24 +1,34 @@
 package com.miro.widget.api.service;
 
-import com.miro.widget.api.contract.WidgetRepository;
 import com.miro.widget.api.contract.WidgetService;
 import com.miro.widget.api.model.dto.WidgetDto;
-import com.miro.widget.api.repository.InMemoryWidgetRepository;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.junit4.SpringRunner;
 
 import java.util.UUID;
 import java.util.concurrent.*;
 
-public class ConcurrentWidgetServiceParallelTest {
+@RunWith(SpringRunner.class)
+@SpringBootTest
+public class ConcurrentWidgetServiceIntegrationTest {
+
+    @Autowired
+    private WidgetService service;
+
+    @Before
+    public void init() {
+        service.deleteAll();
+    }
 
     @Test
     public void save_WhenManyWidgetInParallelWithSingleShift_InsertionsWhereSuccessful() throws InterruptedException {
         ExecutorService e = Executors.newFixedThreadPool(4);
         CountDownLatch latch = new CountDownLatch(4);
-
-        WidgetRepository repository = new InMemoryWidgetRepository();
-        WidgetService service = new ConcurrentWidgetService(repository);
 
         e.submit(() -> {
             latch.countDown();
@@ -89,9 +99,6 @@ public class ConcurrentWidgetServiceParallelTest {
     public void save_WhenManyWidgetInParallelWithMultipleShift_InsertionsWhereSuccessful() throws InterruptedException {
         ExecutorService e = Executors.newFixedThreadPool(6);
         CountDownLatch latch = new CountDownLatch(6);
-
-        WidgetRepository repository = new InMemoryWidgetRepository();
-        WidgetService service = new ConcurrentWidgetService(repository);
 
         e.submit(() -> {
             latch.countDown();
@@ -192,9 +199,6 @@ public class ConcurrentWidgetServiceParallelTest {
         ExecutorService e = Executors.newFixedThreadPool(4);
         CountDownLatch latch = new CountDownLatch(4);
 
-        WidgetRepository repository = new InMemoryWidgetRepository();
-        WidgetService service = new ConcurrentWidgetService(repository);
-
         e.submit(() -> {
             latch.countDown();
             System.out.println("Start add widgetDto1" + Thread.currentThread().getName());
@@ -261,9 +265,6 @@ public class ConcurrentWidgetServiceParallelTest {
     public void update_WhenManyWidgetInParallelWithMultipleShift_UpdatesWhereSuccessful() throws InterruptedException {
         ExecutorService e = Executors.newFixedThreadPool(8);
         CountDownLatch latch = new CountDownLatch(6);
-
-        WidgetRepository repository = new InMemoryWidgetRepository();
-        WidgetService service = new ConcurrentWidgetService(repository);
 
         e.submit(() -> {
             latch.countDown();
@@ -384,9 +385,6 @@ public class ConcurrentWidgetServiceParallelTest {
     public void delete_WhenManyWidgetInParallel_DeletionsWhereSuccessful() throws InterruptedException {
         ExecutorService e = Executors.newFixedThreadPool(12);
         CountDownLatch latch = new CountDownLatch(6);
-
-        WidgetRepository repository = new InMemoryWidgetRepository();
-        WidgetService service = new ConcurrentWidgetService(repository);
 
         Future<WidgetDto> widget1 = e.submit(() -> {
             latch.countDown();
@@ -546,9 +544,6 @@ public class ConcurrentWidgetServiceParallelTest {
     @Test
     public void delete_WhenDeletedWidgetIsNotExistInParallel_ThrowNoSuchElementException() throws InterruptedException {
         ExecutorService e = Executors.newFixedThreadPool(1);
-
-        WidgetRepository repository = new InMemoryWidgetRepository();
-        WidgetService service = new ConcurrentWidgetService(repository);
 
         e.submit(() -> {
             service.delete(UUID.randomUUID());

@@ -71,4 +71,10 @@ public class InMemoryWidgetRepository implements WidgetRepository {
         widgetMapById.remove(widget.getId());
         return widgetMapByZIndex.remove(widget.getZIndex());
     }
+
+    @Override
+    public void removeAll() {
+        widgetMapById.clear();
+        widgetMapByZIndex.clear();
+    }
 }

@@ -27,4 +27,6 @@ public interface WidgetRepository {
     void saveOrUpdate(Collection<Widget> widget);
 
     Widget remove(Widget widget);
+
+    void removeAll();
 }

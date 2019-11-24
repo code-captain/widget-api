@@ -187,6 +187,11 @@ public class ConcurrentWidgetService implements WidgetService {
         }
     }
 
+    @Override
+    public void deleteAll() {
+        repository.removeAll();
+    }
+
     private List<WidgetDto> findAllSortByZIndex(long skip, long take) {
         return repository.findAllSortByZIndex(skip,  take).stream()
                 .map(ConcurrentWidgetService::fromEntity)

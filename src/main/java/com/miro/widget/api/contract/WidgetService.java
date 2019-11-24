@@ -19,4 +19,6 @@ public interface WidgetService {
     WidgetDto update(UUID uuid, WidgetDto dto);
 
     WidgetDto delete(UUID uuid);
+
+    void deleteAll();
 }
