@@ -2,6 +2,7 @@ package com.miro.widget.api.controller;
 
 import com.miro.widget.api.contract.WidgetService;
 import com.miro.widget.api.model.dto.WidgetDto;
+import com.miro.widget.api.model.request.WidgetRequest;
 import com.miro.widget.api.model.response.WidgetLinkRelType;
 import com.miro.widget.api.model.response.WidgetResource;
 import com.miro.widget.api.model.response.WidgetResources;
@@ -12,9 +13,9 @@ import org.springframework.hateoas.Resource;
 import org.springframework.hateoas.Resources;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.Valid;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -23,7 +24,7 @@ import java.util.stream.Collectors;
 import static org.springframework.hateoas.core.DummyInvocationUtils.methodOn;
 import static org.springframework.hateoas.mvc.ControllerLinkBuilder.linkTo;
 
-@Controller
+@RestController
 @RequestMapping(path = "api/widgets")
 @RequiredArgsConstructor
 public class WidgetController {
@@ -35,7 +36,7 @@ public class WidgetController {
         Collection<WidgetDto> widgets = service.getAll();
         List<WidgetResponse> widgetResponses = widgets.stream()
                 .map(widget -> {
-                    WidgetResponse widgetResponse = convertToResponse(widget);
+                    WidgetResponse widgetResponse = toResponse(widget);
                     widgetResponse.add(
                             generateWidgetLink(widget.getId(), true));
                     return widgetResponse;
@@ -50,51 +51,60 @@ public class WidgetController {
     }
 
     @GetMapping(path = "/{id}")
-    public ResponseEntity<Resource<WidgetResponse>> getOne(@PathVariable UUID id) {
+    public ResponseEntity<Resource<WidgetResponse>> getOne(
+            @PathVariable UUID id
+    ) {
         WidgetDto widget = service.getById(id);
         if (widget == null) {
             return ResponseEntity.notFound().build();
         }
         Resource<WidgetResponse> result = new WidgetResource<>(
-                convertToResponse(widget),
+                toResponse(widget),
                 generateWidgetResourceLinks(widget.getId())
         );
         return ResponseEntity.ok(result);
     }
 
     @PostMapping
-    public ResponseEntity<Resource<WidgetResponse>> create(@RequestBody WidgetDto widget) {
-        WidgetDto saved = service.save(widget);
+    public ResponseEntity<Resource<WidgetResponse>> create(
+            @Valid @RequestBody WidgetRequest request
+    ) {
+        WidgetDto saved = service.save(fromRequest(request));
         Resource<WidgetResponse> result = new WidgetResource<>(
-                convertToResponse(saved),
+                toResponse(saved),
                 generateWidgetResourceLinks(saved.getId())
         );
         return ResponseEntity.ok(result);
     }
 
     @PutMapping(path = "/{id}")
-    public ResponseEntity<Resource<WidgetResponse>> update(@PathVariable UUID id, @RequestBody WidgetDto widget) {
+    public ResponseEntity<Resource<WidgetResponse>> update(
+            @PathVariable UUID id,
+            @Valid @RequestBody WidgetRequest request
+    ) {
         WidgetDto current = service.getById(id);
         if (current == null) {
             return ResponseEntity.notFound().build();
         }
-        WidgetDto updated = service.update(id, widget);
+        WidgetDto updated = service.update(id, fromRequest(request));
         Resource<WidgetResponse> result = new WidgetResource<>(
-                convertToResponse(updated),
+                toResponse(updated),
                 generateWidgetResourceLinks(updated.getId())
         );
         return ResponseEntity.ok(result);
     }
 
     @DeleteMapping(path = "/{id}")
-    public ResponseEntity delete(@PathVariable UUID id) {
+    public ResponseEntity delete(
+            @PathVariable UUID id
+    ) {
         WidgetDto current = service.getById(id);
         if (current == null) {
             return ResponseEntity.notFound().build();
         }
         WidgetDto deleted = service.delete(id);
         Resource<WidgetResponse> result = new WidgetResource<>(
-                convertToResponse(deleted),
+                toResponse(deleted),
                 generateWidgetsLink(false)
         );
         return ResponseEntity.ok(result);
@@ -143,7 +153,7 @@ public class WidgetController {
                 .withType(HttpMethod.DELETE.name());
     }
 
-    private static WidgetResponse convertToResponse(WidgetDto dto) {
+    private static WidgetResponse toResponse(WidgetDto dto) {
         return new WidgetResponse(
                 dto.getId(),
                 dto.getXCoordinate(),
@@ -152,6 +162,18 @@ public class WidgetController {
                 dto.getWidth(),
                 dto.getHeight(),
                 dto.getModifiedAt()
+        );
+    }
+
+    private static WidgetDto fromRequest(WidgetRequest request) {
+        return new WidgetDto(
+                null,
+                request.getXCoordinate(),
+                request.getYCoordinate(),
+                request.getZIndex(),
+                request.getWidth(),
+                request.getHeight(),
+                null
         );
     }
 }

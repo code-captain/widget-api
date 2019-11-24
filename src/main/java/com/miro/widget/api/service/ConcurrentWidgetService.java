@@ -90,6 +90,9 @@ public class ConcurrentWidgetService implements WidgetService {
 
     @Override
     public WidgetDto update(UUID uuid, WidgetDto dto) {
+        if (dto.getZIndex() == null) {
+            throw new IllegalArgumentException("Field `zIndex` must be not null");
+        }
         Widget newest = Widget.fromDto(dto);
         long stamp = sl.readLock();
         try {
