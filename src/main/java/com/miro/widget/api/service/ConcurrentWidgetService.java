@@ -1,7 +1,9 @@
 package com.miro.widget.api.service;
 
 import com.miro.widget.api.contract.WidgetService;
+import com.miro.widget.api.model.dto.PageableDto;
 import com.miro.widget.api.model.dto.WidgetDto;
+import com.miro.widget.api.model.entity.Page;
 import com.miro.widget.api.model.entity.Widget;
 import org.springframework.stereotype.Service;
 
@@ -29,17 +31,51 @@ public class ConcurrentWidgetService implements WidgetService {
     }
 
     @Override
-    public Set<WidgetDto> getAll() {
+    public Page<WidgetDto> getPage(PageableDto meta) {
+        long itemsToSkip = (meta.getPage() - 1) * meta.getSize();
+
         long stamp = sl.tryOptimisticRead();
-        Set<WidgetDto> result = widgetMapByZIndex.values().stream()
+        int count = widgetMapById.size();
+        if (count < itemsToSkip) {
+            return new Page<>(new ArrayList<>(), meta.getPage(), meta.getSize(), count);
+        }
+        List<WidgetDto> result = widgetMapByZIndex.values().stream()
                 .map(WidgetDto::fromEntity)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
+                .skip(itemsToSkip)
+                .limit(meta.getSize())
+                .collect(Collectors.toList());
+
+        if (!sl.validate(stamp)) {
+            stamp = sl.readLock();
+            try {
+                count = widgetMapById.size();
+                if (count < itemsToSkip) {
+                    return new Page<>(new ArrayList<>(), meta.getPage(), meta.getSize(), count);
+                }
+                result = widgetMapByZIndex.values().stream()
+                        .map(WidgetDto::fromEntity)
+                        .skip(itemsToSkip)
+                        .limit(meta.getSize())
+                        .collect(Collectors.toList());
+            } finally {
+                sl.unlockRead(stamp);
+            }
+        }
+        return new Page<>(result, meta.getPage(), meta.getSize(), count);
+    }
+
+    @Override
+    public List<WidgetDto> getAll() {
+        long stamp = sl.tryOptimisticRead();
+        List<WidgetDto> result = widgetMapByZIndex.values().stream()
+                .map(WidgetDto::fromEntity)
+                .collect(Collectors.toList());
         if (!sl.validate(stamp)) {
             stamp = sl.readLock();
             try {
                 result = widgetMapByZIndex.values().stream()
                         .map(WidgetDto::fromEntity)
-                        .collect(Collectors.toCollection(LinkedHashSet::new));
+                        .collect(Collectors.toList());
             } finally {
                 sl.unlockRead(stamp);
             }

@@ -1,22 +1,20 @@
 package com.miro.widget.api.controller;
 
 import com.miro.widget.api.contract.WidgetService;
+import com.miro.widget.api.model.dto.PageableDto;
 import com.miro.widget.api.model.dto.WidgetDto;
+import com.miro.widget.api.model.entity.Page;
+import com.miro.widget.api.model.request.Pageable;
 import com.miro.widget.api.model.request.WidgetRequest;
-import com.miro.widget.api.model.response.WidgetLinkRelType;
-import com.miro.widget.api.model.response.WidgetResource;
-import com.miro.widget.api.model.response.WidgetResources;
-import com.miro.widget.api.model.response.WidgetResponse;
+import com.miro.widget.api.model.response.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.hateoas.Link;
 import org.springframework.hateoas.Resource;
-import org.springframework.hateoas.Resources;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
-import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -28,13 +26,14 @@ import static org.springframework.hateoas.mvc.ControllerLinkBuilder.linkTo;
 @RequestMapping(path = "api/widgets")
 @RequiredArgsConstructor
 public class WidgetController {
-
     private final WidgetService service;
 
     @GetMapping
-    public ResponseEntity<Resources<WidgetResponse>> getAll() {
-        Collection<WidgetDto> widgets = service.getAll();
-        List<WidgetResponse> widgetResponses = widgets.stream()
+    public ResponseEntity<WidgetPagedResources<WidgetResponse>> getAll(
+            @Valid Pageable pageable
+    ) {
+        Page<WidgetDto> page = service.getPage(fromPageable(pageable));
+        List<WidgetResponse> widgetResponses = page.getItems().stream()
                 .map(widget -> {
                     WidgetResponse widgetResponse = toResponse(widget);
                     widgetResponse.add(
@@ -42,11 +41,13 @@ public class WidgetController {
                     return widgetResponse;
                 }).collect(Collectors.toList());
 
-        Resources<WidgetResponse> result = new WidgetResources<>(
-                widgetResponses,
-                generateWidgetsLink(true),
-                generateCreateLink()
-        );
+        Link selfLink = generateWidgetsLink(true);
+        WidgetPagedResources<WidgetResponse> result = new WidgetPagedResourcesBuilder<>(widgetResponses, page)
+                .withSelfLink(selfLink)
+                .withPrevLink(selfLink)
+                .withNextLink(selfLink)
+                .withLink(generateCreateLink())
+                .build();
         return ResponseEntity.ok(result);
     }
 
@@ -128,7 +129,7 @@ public class WidgetController {
     }
 
     private Link generateWidgetsLink(boolean isSelf) {
-        return linkTo(methodOn(getClass()).getAll())
+        return linkTo(methodOn(getClass()).getAll(null))
                 .withRel(isSelf
                         ? Link.REL_SELF
                         : WidgetLinkRelType.WIDGETS.getTitle())
@@ -174,6 +175,13 @@ public class WidgetController {
                 request.getWidth(),
                 request.getHeight(),
                 null
+        );
+    }
+
+    private static PageableDto fromPageable(Pageable pageable) {
+        return new PageableDto(
+                pageable.getPage(),
+                pageable.getSize()
         );
     }
 }
