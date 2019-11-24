@@ -29,16 +29,23 @@ public class ConcurrentWidgetService implements WidgetService {
         if (widget == null) {
             return null;
         }
-        return WidgetDto.fromEntity(widget);
+        return fromEntity(widget);
     }
 
     @Override
     public Page<WidgetDto> findPage(PageableDto meta) {
+        if (meta.getPage() <= 0) {
+            throw new IllegalArgumentException("Field `page` must be greater than 0");
+        }
+        if (meta.getSize() <= 0) {
+            throw new IllegalArgumentException("Field `size` must be greater than 0");
+        }
+
         long itemsToSkip = (meta.getPage() - 1) * meta.getSize();
 
         long stamp = sl.tryOptimisticRead();
         long count = repository.count();
-        if (count < itemsToSkip) {
+        if (count <= itemsToSkip) {
             return Page.createEmptyPage(meta, count);
         }
         List<WidgetDto> widgets = findAllSortByZIndex(itemsToSkip, meta.getSize());
@@ -46,7 +53,7 @@ public class ConcurrentWidgetService implements WidgetService {
             stamp = sl.readLock();
             try {
                 count = repository.count();
-                if (count < itemsToSkip) {
+                if (count <= itemsToSkip) {
                     return Page.createEmptyPage(meta, count);
                 }
                 widgets = findAllSortByZIndex(itemsToSkip, meta.getSize());
@@ -76,7 +83,7 @@ public class ConcurrentWidgetService implements WidgetService {
 
     @Override
     public WidgetDto save(WidgetDto dto) {
-        Widget newest = Widget.fromDto(dto);
+        Widget newest = fromDto(dto);
 
         long stamp = sl.readLock();
         try {
@@ -101,7 +108,7 @@ public class ConcurrentWidgetService implements WidgetService {
                     repository.saveOrUpdate(newest);
                     repository.saveOrUpdate(shiftedElementsCopies);
 
-                    return WidgetDto.fromEntity(newest);
+                    return fromEntity(newest);
                 } else {
                     sl.unlockRead(stamp);
                     stamp = sl.writeLock();
@@ -117,7 +124,7 @@ public class ConcurrentWidgetService implements WidgetService {
         if (dto.getZIndex() == null) {
             throw new IllegalArgumentException("Field `zIndex` must be not null");
         }
-        Widget newest = Widget.fromDto(dto);
+        Widget newest = fromDto(dto);
         long stamp = sl.readLock();
         try {
             while (true) {
@@ -144,7 +151,7 @@ public class ConcurrentWidgetService implements WidgetService {
                     repository.saveOrUpdate(newest);
                     repository.saveOrUpdate(shiftedElementsCopies);
 
-                    return WidgetDto.fromEntity(newest);
+                    return fromEntity(newest);
                 } else {
                     sl.unlockRead(stamp);
                     stamp = sl.writeLock();
@@ -169,7 +176,7 @@ public class ConcurrentWidgetService implements WidgetService {
                 if (ws != 0L) {
                     stamp = ws;
 
-                    return WidgetDto.fromEntity(repository.remove(oldest));
+                    return fromEntity(repository.remove(oldest));
                 } else {
                     sl.unlockRead(stamp);
                     stamp = sl.writeLock();
@@ -182,13 +189,13 @@ public class ConcurrentWidgetService implements WidgetService {
 
     private List<WidgetDto> findAllSortByZIndex(long skip, long take) {
         return repository.findAllSortByZIndex(skip,  take).stream()
-                .map(WidgetDto::fromEntity)
+                .map(ConcurrentWidgetService::fromEntity)
                 .collect(toList());
     }
 
     private List<WidgetDto> findAllSortByZIndex() {
         return repository.findAllSortByZIndex().stream()
-                .map(WidgetDto::fromEntity)
+                .map(ConcurrentWidgetService::fromEntity)
                 .collect(toList());
     }
 
@@ -217,7 +224,7 @@ public class ConcurrentWidgetService implements WidgetService {
                 break;
             }
 
-            Widget copy = Widget.copy(e.getValue());
+            Widget copy = copy(e.getValue());
             copy.setZIndex(copy.getZIndex() + 1);
             copy.setModifiedAt(Date.from(Instant.now()));
             result.add(copy);
@@ -236,5 +243,39 @@ public class ConcurrentWidgetService implements WidgetService {
 
     private static long getDistance(long f, long s) {
         return Math.abs(f - s);
+    }
+
+    private static Widget fromDto(WidgetDto dto) {
+        Widget widget = new Widget();
+        widget.setXCoordinate(dto.getXCoordinate());
+        widget.setYCoordinate(dto.getYCoordinate());
+        widget.setZIndex(dto.getZIndex());
+        widget.setWidth(dto.getWidth());
+        widget.setHeight(dto.getHeight());
+        return widget;
+    }
+
+    private static WidgetDto fromEntity(Widget entity) {
+        return new WidgetDto(
+                entity.getId(),
+                entity.getXCoordinate(),
+                entity.getYCoordinate(),
+                entity.getZIndex(),
+                entity.getWidth(),
+                entity.getHeight(),
+                entity.getModifiedAt()
+        );
+    }
+
+    private static Widget copy(Widget self) {
+        return new Widget(
+                self.getId(),
+                self.getXCoordinate(),
+                self.getYCoordinate(),
+                self.getZIndex(),
+                self.getWidth(),
+                self.getHeight(),
+                self.getModifiedAt()
+        );
     }
 }

@@ -1,6 +1,5 @@
 package com.miro.widget.api.model.dto;
 
-import com.miro.widget.api.model.entity.Widget;
 import lombok.*;
 
 import java.util.Date;
@@ -25,16 +24,4 @@ public class WidgetDto {
     private long height;
 
     private Date modifiedAt;
-
-    public static WidgetDto fromEntity(Widget entity) {
-        return new WidgetDto(
-                entity.getId(),
-                entity.getXCoordinate(),
-                entity.getYCoordinate(),
-                entity.getZIndex(),
-                entity.getWidth(),
-                entity.getHeight(),
-                entity.getModifiedAt()
-        );
-    }
 }

@@ -2,560 +2,337 @@ package com.miro.widget.api.service;
 
 import com.miro.widget.api.contract.WidgetRepository;
 import com.miro.widget.api.contract.WidgetService;
+import com.miro.widget.api.model.dto.PageableDto;
 import com.miro.widget.api.model.dto.WidgetDto;
-import com.miro.widget.api.repository.InMemoryWidgetRepository;
+import com.miro.widget.api.model.entity.Page;
+import com.miro.widget.api.model.entity.Widget;
+import org.hamcrest.core.IsInstanceOf;
 import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.rules.ExpectedException;
 
-import java.util.UUID;
-import java.util.concurrent.*;
+import java.time.Instant;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import static java.util.Collections.emptySet;
+import static org.junit.Assert.*;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
+
+@TestMethodOrder(MethodOrderer.Alphanumeric.class)
 public class ConcurrentWidgetServiceTest {
+    private WidgetRepository repository;
+    private WidgetService service;
 
-    @Test
-    public void save_WhenManyWidgetInParallelWithSingleShift_InsertionsWhereSuccessful() throws InterruptedException {
-        ExecutorService e = Executors.newFixedThreadPool(4);
-        CountDownLatch latch = new CountDownLatch(4);
+    @Rule
+    public ExpectedException expectedException = ExpectedException.none();
 
-        WidgetRepository repository = new InMemoryWidgetRepository();
-        WidgetService service = new ConcurrentWidgetService(repository);
-
-        e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto1" + Thread.currentThread().getName());
-            WidgetDto widgetDto1 = new WidgetDto();
-            widgetDto1.setXCoordinate(10);
-            widgetDto1.setYCoordinate(30);
-            widgetDto1.setWidth(100);
-            widgetDto1.setHeight(50);
-
-            service.save(widgetDto1);
-            System.out.println("Finish add widgetDto1" + Thread.currentThread().getName());
-        });
-
-        e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto2" + Thread.currentThread().getName());
-            WidgetDto widgetDto2 = new WidgetDto();
-            widgetDto2.setXCoordinate(20);
-            widgetDto2.setYCoordinate(35);
-            widgetDto2.setZIndex(2L);
-            widgetDto2.setWidth(100);
-            widgetDto2.setHeight(50);
-
-            service.save(widgetDto2);
-            System.out.println("Finish add widgetDto2" + Thread.currentThread().getName());
-        });
-
-        e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto3" + Thread.currentThread().getName());
-
-            WidgetDto widgetDto3 = new WidgetDto();
-            widgetDto3.setXCoordinate(30);
-            widgetDto3.setYCoordinate(40);
-            widgetDto3.setZIndex(1L);
-            widgetDto3.setWidth(100);
-            widgetDto3.setHeight(50);
-
-            service.save(widgetDto3);
-            System.out.println("Finish add widgetDto3" + Thread.currentThread().getName());
-        });
-
-        e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto4" + Thread.currentThread().getName());
-
-            WidgetDto widgetDto4 = new WidgetDto();
-            widgetDto4.setXCoordinate(40);
-            widgetDto4.setYCoordinate(45);
-            widgetDto4.setZIndex(1L);
-            widgetDto4.setWidth(100);
-            widgetDto4.setHeight(50);
-
-
-            service.save(widgetDto4);
-            System.out.println("Finish add widgetDto4" + Thread.currentThread().getName());
-        });
-
-        latch.await();
-        e.shutdown();
-        e.awaitTermination(5, TimeUnit.SECONDS);
-
-        Assert.assertEquals(4, service.findAll().size());
+    @Before
+    public void setUp() {
+        repository = mock(WidgetRepository.class);
+        service = new ConcurrentWidgetService(repository);
     }
 
     @Test
-    public void save_WhenManyWidgetInParallelWithMultipleShift_InsertionsWhereSuccessful() throws InterruptedException {
-        ExecutorService e = Executors.newFixedThreadPool(6);
-        CountDownLatch latch = new CountDownLatch(6);
+    public void findById_WhenWidgetIsExist_ReturnExpectedWidgetDto() {
+        Widget test = createWidget();
+        doReturn(test).when(repository).findById(eq(test.getId()));
 
-        WidgetRepository repository = new InMemoryWidgetRepository();
-        WidgetService service = new ConcurrentWidgetService(repository);
-
-        e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto1" + Thread.currentThread().getName());
-            WidgetDto widgetDto1 = new WidgetDto();
-            widgetDto1.setXCoordinate(10);
-            widgetDto1.setYCoordinate(30);
-            widgetDto1.setWidth(100);
-            widgetDto1.setHeight(50);
-
-            service.save(widgetDto1);
-            System.out.println("Finish add widgetDto1" + Thread.currentThread().getName());
-        });
-
-        e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto2" + Thread.currentThread().getName());
-            WidgetDto widgetDto2 = new WidgetDto();
-            widgetDto2.setXCoordinate(20);
-            widgetDto2.setYCoordinate(35);
-            widgetDto2.setZIndex(2L);
-            widgetDto2.setWidth(100);
-            widgetDto2.setHeight(50);
-
-            service.save(widgetDto2);
-            System.out.println("Finish add widgetDto2" + Thread.currentThread().getName());
-        });
-
-        e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto3" + Thread.currentThread().getName());
-
-            WidgetDto widgetDto3 = new WidgetDto();
-            widgetDto3.setXCoordinate(30);
-            widgetDto3.setYCoordinate(40);
-            widgetDto3.setZIndex(1L);
-            widgetDto3.setWidth(100);
-            widgetDto3.setHeight(50);
-
-            service.save(widgetDto3);
-            System.out.println("Finish add widgetDto3" + Thread.currentThread().getName());
-        });
-
-        e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto4" + Thread.currentThread().getName());
-
-            WidgetDto widgetDto4 = new WidgetDto();
-            widgetDto4.setXCoordinate(40);
-            widgetDto4.setYCoordinate(45);
-            widgetDto4.setZIndex(1L);
-            widgetDto4.setWidth(100);
-            widgetDto4.setHeight(50);
-
-            service.save(widgetDto4);
-            System.out.println("Finish add widgetDto4" + Thread.currentThread().getName());
-        });
-
-        e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto5" + Thread.currentThread().getName());
-
-            WidgetDto widgetDto5 = new WidgetDto();
-            widgetDto5.setXCoordinate(50);
-            widgetDto5.setYCoordinate(50);
-            widgetDto5.setZIndex(5L);
-            widgetDto5.setWidth(100);
-            widgetDto5.setHeight(50);
-
-            service.save(widgetDto5);
-            System.out.println("Finish add widgetDto5" + Thread.currentThread().getName());
-        });
-
-        e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto6" + Thread.currentThread().getName());
-
-            WidgetDto widgetDto6 = new WidgetDto();
-            widgetDto6.setXCoordinate(60);
-            widgetDto6.setYCoordinate(50);
-            widgetDto6.setZIndex(3L);
-            widgetDto6.setWidth(100);
-            widgetDto6.setHeight(50);
-
-            service.save(widgetDto6);
-            System.out.println("Finish add widgetDto6" + Thread.currentThread().getName());
-        });
-
-        latch.await();
-        e.shutdown();
-        e.awaitTermination(5, TimeUnit.SECONDS);
-
-        Assert.assertEquals(6, service.findAll().size());
+        WidgetDto testable = service.findById(test.getId());
+        assertEquals(test.getId(), testable.getId());
+        assertEquals(test.getXCoordinate(), testable.getXCoordinate());
+        assertEquals(test.getYCoordinate(), testable.getYCoordinate());
+        assertEquals(test.getZIndex(), testable.getZIndex());
+        assertEquals(test.getWidth(), testable.getWidth());
+        assertEquals(test.getHeight(), testable.getHeight());
+        assertEquals(test.getModifiedAt(), testable.getModifiedAt());
     }
 
     @Test
-    public void save_WhenOneWidgetInParallelWithMultipleShift_InsertionsWhereSuccessful() throws InterruptedException {
-        ExecutorService e = Executors.newFixedThreadPool(4);
-        CountDownLatch latch = new CountDownLatch(4);
+    public void findById_WhenWidgetIsNotExist_ReturnNull() {
+        Widget test = createWidget();
+        doReturn(test).when(repository).findById(eq(test.getId()));
 
-        WidgetRepository repository = new InMemoryWidgetRepository();
-        WidgetService service = new ConcurrentWidgetService(repository);
-
-        e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto1" + Thread.currentThread().getName());
-            WidgetDto widgetDto1 = new WidgetDto();
-            widgetDto1.setXCoordinate(10);
-            widgetDto1.setYCoordinate(30);
-            widgetDto1.setWidth(100);
-            widgetDto1.setHeight(50);
-
-            service.save(widgetDto1);
-            System.out.println("Finish add widgetDto1" + Thread.currentThread().getName());
-        });
-
-        e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto2" + Thread.currentThread().getName());
-            WidgetDto widgetDto2 = new WidgetDto();
-            widgetDto2.setXCoordinate(20);
-            widgetDto2.setYCoordinate(35);
-            widgetDto2.setWidth(100);
-            widgetDto2.setHeight(50);
-
-            service.save(widgetDto2);
-            System.out.println("Finish add widgetDto2" + Thread.currentThread().getName());
-        });
-
-        e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto3" + Thread.currentThread().getName());
-
-            WidgetDto widgetDto3 = new WidgetDto();
-            widgetDto3.setXCoordinate(30);
-            widgetDto3.setYCoordinate(40);
-            widgetDto3.setWidth(100);
-            widgetDto3.setHeight(50);
-
-            service.save(widgetDto3);
-            System.out.println("Finish add widgetDto3" + Thread.currentThread().getName());
-        });
-
-        e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto4" + Thread.currentThread().getName());
-
-            WidgetDto widgetDto4 = new WidgetDto();
-            widgetDto4.setXCoordinate(40);
-            widgetDto4.setYCoordinate(45);
-            widgetDto4.setWidth(100);
-            widgetDto4.setHeight(50);
-
-
-            service.save(widgetDto4);
-            System.out.println("Finish add widgetDto4" + Thread.currentThread().getName());
-        });
-
-        latch.await();
-        e.shutdown();
-        e.awaitTermination(5, TimeUnit.SECONDS);
-
-        Assert.assertEquals(4, service.findAll().size());
+        WidgetDto testable = service.findById(UUID.randomUUID());
+        assertNull(testable);
     }
 
     @Test
-    public void update_WhenManyWidgetInParallelWithMultipleShift_UpdatesWhereSuccessful() throws InterruptedException {
-        ExecutorService e = Executors.newFixedThreadPool(8);
-        CountDownLatch latch = new CountDownLatch(6);
-
-        WidgetRepository repository = new InMemoryWidgetRepository();
-        WidgetService service = new ConcurrentWidgetService(repository);
-
-        e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto2" + Thread.currentThread().getName());
-            WidgetDto widgetDto2 = new WidgetDto();
-            widgetDto2.setXCoordinate(20);
-            widgetDto2.setYCoordinate(35);
-            widgetDto2.setZIndex(2L);
-            widgetDto2.setWidth(100);
-            widgetDto2.setHeight(50);
-
-            service.save(widgetDto2);
-            System.out.println("Finish add widgetDto2" + Thread.currentThread().getName());
-        });
-
-        e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto3" + Thread.currentThread().getName());
-            WidgetDto widgetDto3 = new WidgetDto();
-            widgetDto3.setXCoordinate(30);
-            widgetDto3.setYCoordinate(40);
-            widgetDto3.setZIndex(1L);
-            widgetDto3.setWidth(100);
-            widgetDto3.setHeight(50);
-
-            service.save(widgetDto3);
-            System.out.println("Finish add widgetDto3" + Thread.currentThread().getName());
-        });
-
-        e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto4" + Thread.currentThread().getName());
-            WidgetDto widgetDto4 = new WidgetDto();
-            widgetDto4.setXCoordinate(40);
-            widgetDto4.setYCoordinate(45);
-            widgetDto4.setZIndex(1L);
-            widgetDto4.setWidth(100);
-            widgetDto4.setHeight(50);
-
-            service.save(widgetDto4);
-            System.out.println("Finish add widgetDto4" + Thread.currentThread().getName());
-        });
-
-        e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto6" + Thread.currentThread().getName());
-            WidgetDto widgetDto6 = new WidgetDto();
-            widgetDto6.setXCoordinate(60);
-            widgetDto6.setYCoordinate(60);
-            widgetDto6.setZIndex(3L);
-            widgetDto6.setWidth(100);
-            widgetDto6.setHeight(50);
-
-            service.save(widgetDto6);
-            System.out.println("Finish add widgetDto6" + Thread.currentThread().getName());
-        });
-
-        Future<WidgetDto> widget1 = e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto1" + Thread.currentThread().getName());
-            WidgetDto widgetDto1 = new WidgetDto();
-            widgetDto1.setXCoordinate(10);
-            widgetDto1.setYCoordinate(30);
-            widgetDto1.setWidth(100);
-            widgetDto1.setHeight(50);
-
-            System.out.println("Finish add widgetDto1" + Thread.currentThread().getName());
-            return service.save(widgetDto1);
-        });
-
-        Future<WidgetDto> widget5 = e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto5" + Thread.currentThread().getName());
-            WidgetDto widgetDto5 = new WidgetDto();
-            widgetDto5.setXCoordinate(50);
-            widgetDto5.setYCoordinate(50);
-            widgetDto5.setZIndex(5L);
-            widgetDto5.setWidth(100);
-            widgetDto5.setHeight(50);
-
-            System.out.println("Finish add widgetDto5" + Thread.currentThread().getName());
-            return service.save(widgetDto5);
-        });
-
-        e.submit(() -> {
-            System.out.println("Start update widget1 after save" + Thread.currentThread().getName());
-            try {
-                WidgetDto widgetDto = widget1.get();
-                widgetDto.setZIndex(1L);
-                widgetDto.setYCoordinate(1000);
-                service.update(widgetDto.getId(), widgetDto);
-                System.out.println("Finish update widget1 after save" + Thread.currentThread().getName());
-            } catch (InterruptedException | ExecutionException e1) {
-                e1.printStackTrace();
-            }
-        });
-
-        e.submit(() -> {
-            System.out.println("Start update widget5 after save" + Thread.currentThread().getName());
-            try {
-                WidgetDto widgetDto = widget5.get();
-                widgetDto.setZIndex(6L);
-                widgetDto.setYCoordinate(5000);
-                service.update(widgetDto.getId(), widgetDto);
-                System.out.println("Finish update widget5 after save" + Thread.currentThread().getName());
-            } catch (InterruptedException | ExecutionException e1) {
-                e1.printStackTrace();
-            }
-        });
-
-        latch.await();
-        e.shutdown();
-        e.awaitTermination(5, TimeUnit.SECONDS);
-        Assert.assertEquals(6, service.findAll().size());
+    public void findPage_WhenParamPageableIsInvalid_ThrowIllegalArgumentException() {
+        expectedException.expect(IsInstanceOf.instanceOf(IllegalArgumentException.class));
+        service.findPage(createInvalidPageableDto());
     }
 
     @Test
-    public void delete_WhenManyWidgetInParallel_DeletionsWhereSuccessful() throws InterruptedException {
-        ExecutorService e = Executors.newFixedThreadPool(12);
-        CountDownLatch latch = new CountDownLatch(6);
+    public void findPage_WhenRequestWidgetsPageIsNotExist_ReturnEmptyPage() {
+        doReturn(0L).when(repository).count();
 
-        WidgetRepository repository = new InMemoryWidgetRepository();
-        WidgetService service = new ConcurrentWidgetService(repository);
+        PageableDto pageableDto = createPageableDto();
+        Page<WidgetDto> page = service.findPage(pageableDto);
 
-        Future<WidgetDto> widget1 = e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto1" + Thread.currentThread().getName());
-            WidgetDto widgetDto1 = new WidgetDto();
-            widgetDto1.setXCoordinate(10);
-            widgetDto1.setYCoordinate(30);
-            widgetDto1.setWidth(100);
-            widgetDto1.setHeight(50);
-
-            System.out.println("Finish add widgetDto1" + Thread.currentThread().getName());
-            return service.save(widgetDto1);
-        });
-
-        Future<WidgetDto> widget2 = e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto2" + Thread.currentThread().getName());
-            WidgetDto widgetDto2 = new WidgetDto();
-            widgetDto2.setXCoordinate(20);
-            widgetDto2.setYCoordinate(35);
-            widgetDto2.setZIndex(2L);
-            widgetDto2.setWidth(100);
-            widgetDto2.setHeight(50);
-
-            System.out.println("Finish add widgetDto2" + Thread.currentThread().getName());
-            return service.save(widgetDto2);
-        });
-
-        Future<WidgetDto> widget3 = e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto3" + Thread.currentThread().getName());
-            WidgetDto widgetDto3 = new WidgetDto();
-            widgetDto3.setXCoordinate(30);
-            widgetDto3.setYCoordinate(40);
-            widgetDto3.setZIndex(1L);
-            widgetDto3.setWidth(100);
-            widgetDto3.setHeight(50);
-
-            System.out.println("Finish add widgetDto3" + Thread.currentThread().getName());
-            return service.save(widgetDto3);
-        });
-
-        Future<WidgetDto> widget4 = e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto4" + Thread.currentThread().getName());
-            WidgetDto widgetDto4 = new WidgetDto();
-            widgetDto4.setXCoordinate(40);
-            widgetDto4.setYCoordinate(45);
-            widgetDto4.setZIndex(1L);
-            widgetDto4.setWidth(100);
-            widgetDto4.setHeight(50);
-
-            System.out.println("Finish add widgetDto4" + Thread.currentThread().getName());
-            return service.save(widgetDto4);
-        });
-
-        Future<WidgetDto> widget5 = e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto5" + Thread.currentThread().getName());
-            WidgetDto widgetDto5 = new WidgetDto();
-            widgetDto5.setXCoordinate(50);
-            widgetDto5.setYCoordinate(50);
-            widgetDto5.setZIndex(5L);
-            widgetDto5.setWidth(100);
-            widgetDto5.setHeight(50);
-
-            System.out.println("Finish add widgetDto5" + Thread.currentThread().getName());
-            return service.save(widgetDto5);
-        });
-
-        Future<WidgetDto> widget6 = e.submit(() -> {
-            latch.countDown();
-            System.out.println("Start add widgetDto6" + Thread.currentThread().getName());
-            WidgetDto widgetDto6 = new WidgetDto();
-            widgetDto6.setXCoordinate(60);
-            widgetDto6.setYCoordinate(60);
-            widgetDto6.setZIndex(3L);
-            widgetDto6.setWidth(100);
-            widgetDto6.setHeight(50);
-
-            System.out.println("Finish add widgetDto6" + Thread.currentThread().getName());
-            return service.save(widgetDto6);
-        });
-
-        e.submit(() -> {
-            System.out.println("Start remove widget1 after save" + Thread.currentThread().getName());
-            try {
-                WidgetDto widget = widget1.get();
-                service.delete(widget.getId());
-                System.out.println("Finish remove widget1 after save" + Thread.currentThread().getName());
-            } catch (InterruptedException | ExecutionException e1) {
-                e1.printStackTrace();
-            }
-        });
-
-        e.submit(() -> {
-            System.out.println("Start remove widget2 after save" + Thread.currentThread().getName());
-            try {
-                WidgetDto widget = widget2.get();
-                service.delete(widget.getId());
-                System.out.println("Finish remove widget2 after save" + Thread.currentThread().getName());
-            } catch (InterruptedException | ExecutionException e1) {
-                e1.printStackTrace();
-            }
-        });
-
-        e.submit(() -> {
-            System.out.println("Start remove widget3 after save" + Thread.currentThread().getName());
-            try {
-                WidgetDto widget = widget3.get();
-                service.delete(widget.getId());
-                System.out.println("Finish remove widget3 after save" + Thread.currentThread().getName());
-            } catch (InterruptedException | ExecutionException e1) {
-                e1.printStackTrace();
-            }
-        });
-
-        e.submit(() -> {
-            System.out.println("Start remove widget4 after save" + Thread.currentThread().getName());
-            try {
-                WidgetDto widget = widget4.get();
-                service.delete(widget.getId());
-                System.out.println("Finish remove widget4 after save" + Thread.currentThread().getName());
-            } catch (InterruptedException | ExecutionException e1) {
-                e1.printStackTrace();
-            }
-        });
-
-        e.submit(() -> {
-            System.out.println("Start remove widget5 after save" + Thread.currentThread().getName());
-            try {
-                WidgetDto widget = widget5.get();
-                service.delete(widget.getId());
-                System.out.println("Finish remove widget4 after save" + Thread.currentThread().getName());
-            } catch (InterruptedException | ExecutionException e1) {
-                e1.printStackTrace();
-            }
-        });
-
-        e.submit(() -> {
-            System.out.println("Start remove widget6 after save" + Thread.currentThread().getName());
-            try {
-                WidgetDto widget = widget6.get();
-                service.delete(widget.getId());
-                System.out.println("Finish remove widget4 after save" + Thread.currentThread().getName());
-            } catch (InterruptedException | ExecutionException e1) {
-                e1.printStackTrace();
-            }
-        });
-
-        latch.await();
-        e.shutdown();
-        e.awaitTermination(5, TimeUnit.SECONDS);
-        Assert.assertEquals(0, service.findAll().size());
+        assertEquals(Collections.emptyList(), page.getItems());
+        assertEquals(pageableDto.getPage(), page.getNumber());
+        assertEquals(pageableDto.getSize(), page.getSize());
+        assertEquals(0, page.getTotalItems());
     }
 
     @Test
-    public void delete_WhenDeletedWidgetIsNotExistInParallel_ThrowNoSuchElementException() throws InterruptedException {
-        ExecutorService e = Executors.newFixedThreadPool(1);
+    public void findPage_WhenRequestWidgetsPageIsExist_ReturnExpectedPage() {
+        doReturn(2L).when(repository).count();
 
-        WidgetRepository repository = new InMemoryWidgetRepository();
-        WidgetService service = new ConcurrentWidgetService(repository);
+        Set<Widget> widgets = createTwoWidgets();
+        doReturn(widgets).when(repository).findAllSortByZIndex(anyLong(), anyLong());
 
-        e.submit(() -> {
-            service.delete(UUID.randomUUID());
-        });
+        PageableDto pageableDto = createPageableDto();
+        Page<WidgetDto> page = service.findPage(pageableDto);
 
-        e.shutdown();
-        e.awaitTermination(5, TimeUnit.SECONDS);
-        Assert.assertEquals(0, service.findAll().size());
+        assertEquals(widgets.size(), page.getItems().size());
+        Iterator<Widget> testIterator = widgets.iterator();
+        Iterator<WidgetDto> testableIterator = page.getItems().iterator();
+        while (testIterator.hasNext()
+                && testableIterator.hasNext()
+        ) {
+            Widget test = testIterator.next();
+            WidgetDto testable = testableIterator.next();
+
+            assertEquals(test.getId(), testable.getId());
+            assertEquals(test.getXCoordinate(), testable.getXCoordinate());
+            assertEquals(test.getYCoordinate(), testable.getYCoordinate());
+            assertEquals(test.getZIndex(), testable.getZIndex());
+            assertEquals(test.getWidth(), testable.getWidth());
+            assertEquals(test.getHeight(), testable.getHeight());
+            assertEquals(test.getModifiedAt(), testable.getModifiedAt());
+        }
+
+        assertEquals(pageableDto.getPage(), page.getNumber());
+        assertEquals(pageableDto.getSize(), page.getSize());
+        assertEquals(2, page.getTotalItems());
+    }
+
+
+    @Test
+    public void findAll_WhenWidgetsAreNotExists_ReturnEmptyCollection() {
+        doReturn(emptySet()).when(repository).findAllSortByZIndex(anyLong(), anyLong());
+        Collection<WidgetDto> all = service.findAll();
+
+        Assert.assertEquals(0, all.size());
+    }
+
+    @Test
+    public void findAll_WhenWidgetsAreExists_ReturnExpectedWidgets() {
+        Set<Widget> widgets = createTwoWidgets();
+        doReturn(widgets).when(repository).findAllSortByZIndex();
+
+        Collection<WidgetDto> all = service.findAll();
+
+        assertEquals(widgets.size(), all.size());
+        Iterator<Widget> testIterator = widgets.iterator();
+        Iterator<WidgetDto> testableIterator = all.iterator();
+        while (testIterator.hasNext()
+                && testableIterator.hasNext()
+        ) {
+            Widget test = testIterator.next();
+            WidgetDto testable = testableIterator.next();
+
+            assertEquals(test.getId(), testable.getId());
+            assertEquals(test.getXCoordinate(), testable.getXCoordinate());
+            assertEquals(test.getYCoordinate(), testable.getYCoordinate());
+            assertEquals(test.getZIndex(), testable.getZIndex());
+            assertEquals(test.getWidth(), testable.getWidth());
+            assertEquals(test.getHeight(), testable.getHeight());
+            assertEquals(test.getModifiedAt(), testable.getModifiedAt());
+        }
+    }
+
+    @Test
+    public void save_WhenWidgetsAreNotExistsAndZIndexIsNull_ReturnSavedWidgetWithZeroZIndex() {
+        doReturn(0L).when(repository).count();
+        Widget test = createWidget(null);
+        WidgetDto saved = service.save(fromEntity(test));
+
+        verify(repository, times(1)).saveOrUpdate(any(Widget.class));
+        verify(repository, times(1)).saveOrUpdate(anyCollection());
+
+        Assert.assertNotNull(saved);
+        assertNotEquals(test.getId(), saved.getId());
+        assertEquals(test.getXCoordinate(), saved.getXCoordinate());
+        assertEquals(test.getYCoordinate(), saved.getYCoordinate());
+        assertEquals(0L, saved.getZIndex().longValue());
+        assertEquals(test.getWidth(), saved.getWidth());
+        assertEquals(test.getHeight(), saved.getHeight());
+    }
+
+    @Test
+    public void save_WhenWidgetsAreExistsAndZIndexIsNull_ReturnSavedWidgetWithHighestZIndex() {
+        doReturn(1L).when(repository).count();
+        doReturn(1L).when(repository).findHighestZIndex();
+        //doReturn(null).when(repository).findLeastZIndexGreaterThanOrEqualTo(eq(1L));
+
+        Widget test = createWidget(null);
+        WidgetDto saved = service.save(fromEntity(test));
+
+        verify(repository, times(1)).saveOrUpdate(any(Widget.class));
+        verify(repository, times(1)).saveOrUpdate(anyCollection());
+
+        Assert.assertNotNull(saved);
+        assertNotEquals(test.getId(), saved.getId());
+        assertEquals(test.getXCoordinate(), saved.getXCoordinate());
+        assertEquals(test.getYCoordinate(), saved.getYCoordinate());
+        assertEquals(2L, saved.getZIndex().longValue());
+        assertEquals(test.getWidth(), saved.getWidth());
+        assertEquals(test.getHeight(), saved.getHeight());
+    }
+
+    @Test
+    public void save_WhenInputZIndexShiftExistedWidgets_ReturnSavedWidgetWithActualZIndex() {
+        doReturn(2L).when(repository).count();
+        doReturn(1L).when(repository).findHighestZIndex();
+        doReturn(1L).when(repository).findLeastZIndexGreaterThanOrEqualTo(eq(1L));
+
+        Widget test = createWidget(1L);
+        doReturn(createWidgetByZIndexMap(test)).when(repository).findAllWithZIndexGreaterThanOrEqualTo(eq(1L));
+
+        WidgetDto saved = service.save(fromEntity(test));
+
+        verify(repository, times(1)).saveOrUpdate(any(Widget.class));
+        verify(repository, times(1)).saveOrUpdate(anyCollection());
+
+        Assert.assertNotNull(saved);
+        assertNotEquals(test.getId(), saved.getId());
+        assertEquals(test.getXCoordinate(), saved.getXCoordinate());
+        assertEquals(test.getYCoordinate(), saved.getYCoordinate());
+        assertEquals(1L, saved.getZIndex().longValue());
+        assertEquals(test.getWidth(), saved.getWidth());
+        assertEquals(test.getHeight(), saved.getHeight());
+    }
+
+    @Test
+    public void update_WhenWidgetDtoIsInvalid_ThrowIllegalArgumentException() {
+        expectedException.expect(IsInstanceOf.instanceOf(IllegalArgumentException.class));
+        Widget test = createWidget(null);
+        service.update(test.getId(), fromEntity(test));
+    }
+
+    @Test
+    public void update_WhenWidgetIsNotExist_ThrowNoSuchElementException() {
+        expectedException.expect(IsInstanceOf.instanceOf(NoSuchElementException.class));
+        Widget test = createWidget(1L);
+        doReturn(null).when(repository).findById(any());
+
+        service.update(test.getId(), fromEntity(test));
+    }
+
+    @Test
+    public void update_WhenWidgetsAreExist_ReturnUpdatedWidget() {
+        doReturn(2L).when(repository).count();
+        doReturn(1L).when(repository).findHighestZIndex();
+        doReturn(1L).when(repository).findLeastZIndexGreaterThanOrEqualTo(eq(1L));
+
+        Widget test = createWidget(2L);
+        doReturn(test).when(repository).findById(eq(test.getId()));
+
+        Widget updated = createWidget(5L);
+        updated.setXCoordinate(110);
+        updated.setYCoordinate(120);
+        WidgetDto testable = service.update(test.getId(), fromEntity(updated));
+
+        verify(repository, times(1)).remove(any(Widget.class));
+        verify(repository, times(1)).saveOrUpdate(any(Widget.class));
+        verify(repository, times(1)).saveOrUpdate(anyCollection());
+
+        Assert.assertNotNull(testable);
+        assertEquals(test.getId(), testable.getId());
+        assertEquals(updated.getXCoordinate(), testable.getXCoordinate());
+        assertEquals(updated.getYCoordinate(), testable.getYCoordinate());
+        assertEquals(updated.getZIndex(), testable.getZIndex());
+        assertEquals(test.getWidth(), testable.getWidth());
+        assertEquals(test.getHeight(), testable.getHeight());
+    }
+
+    @Test
+    public void delete_WhenWidgetIsNotExist_ThrowNoSuchElementException() {
+        expectedException.expect(IsInstanceOf.instanceOf(NoSuchElementException.class));
+        doReturn(null).when(repository).findById(any());
+
+        service.delete(UUID.randomUUID());
+    }
+
+    @Test
+    public void delete_WhenWidgetIsExist_ReturnDeletedWidget() {
+        Widget test = createWidget(2L);
+        doReturn(test).when(repository).findById(eq(test.getId()));
+        doReturn(test).when(repository).remove(any());
+
+        WidgetDto deleted = service.delete(test.getId());
+        verify(repository, times(1)).remove(any(Widget.class));
+
+        Assert.assertNotNull(deleted);
+        assertEquals(test.getId(), deleted.getId());
+    }
+
+
+    private static PageableDto createPageableDto() {
+        return new PageableDto(1, 10);
+    }
+
+    private static PageableDto createInvalidPageableDto() {
+        return new PageableDto(-1, -1);
+    }
+
+    private static NavigableMap<Long, Widget> createWidgetByZIndexMap(Widget... widgets) {
+        NavigableMap<Long, Widget> map = new TreeMap<>();
+        Arrays.asList(widgets)
+                .forEach(widget -> map.put(widget.getZIndex(), widget));
+        return map;
+    }
+
+    private static Set<Widget> createTwoWidgets() {
+        return Stream
+                .iterate(0L, i -> i + 1)
+                .map(ConcurrentWidgetServiceTest::createWidget)
+                .limit(2)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private static Widget createWidget(Long zIndex) {
+        return new Widget(
+                UUID.randomUUID(),
+                40,
+                50,
+                zIndex,
+                100,
+                50,
+                Date.from(Instant.now())
+        );
+    }
+
+    private static Widget createWidget() {
+        return new Widget(
+                UUID.randomUUID(),
+                40,
+                50,
+                5L,
+                100,
+                50,
+                Date.from(Instant.now())
+        );
+    }
+
+    private static WidgetDto fromEntity(Widget entity) {
+        return new WidgetDto(
+                entity.getId(),
+                entity.getXCoordinate(),
+                entity.getYCoordinate(),
+                entity.getZIndex(),
+                entity.getWidth(),
+                entity.getHeight(),
+                entity.getModifiedAt()
+        );
     }
 }
