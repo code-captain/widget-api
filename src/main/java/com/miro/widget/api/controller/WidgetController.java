@@ -32,7 +32,7 @@ public class WidgetController {
     public ResponseEntity<WidgetPagedResources<WidgetResponse>> getAll(
             @Valid Pageable pageable
     ) {
-        Page<WidgetDto> page = service.getPage(fromPageable(pageable));
+        Page<WidgetDto> page = service.findPage(fromPageable(pageable));
         List<WidgetResponse> widgetResponses = page.getItems().stream()
                 .map(widget -> {
                     WidgetResponse widgetResponse = toResponse(widget);
@@ -55,7 +55,7 @@ public class WidgetController {
     public ResponseEntity<Resource<WidgetResponse>> getOne(
             @PathVariable UUID id
     ) {
-        WidgetDto widget = service.getById(id);
+        WidgetDto widget = service.findById(id);
         if (widget == null) {
             return ResponseEntity.notFound().build();
         }
@@ -83,7 +83,7 @@ public class WidgetController {
             @PathVariable UUID id,
             @Valid @RequestBody WidgetRequest request
     ) {
-        WidgetDto current = service.getById(id);
+        WidgetDto current = service.findById(id);
         if (current == null) {
             return ResponseEntity.notFound().build();
         }
@@ -99,7 +99,7 @@ public class WidgetController {
     public ResponseEntity delete(
             @PathVariable UUID id
     ) {
-        WidgetDto current = service.getById(id);
+        WidgetDto current = service.findById(id);
         if (current == null) {
             return ResponseEntity.notFound().build();
         }

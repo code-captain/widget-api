@@ -1,7 +1,9 @@
 package com.miro.widget.api.service;
 
+import com.miro.widget.api.contract.WidgetRepository;
 import com.miro.widget.api.contract.WidgetService;
 import com.miro.widget.api.model.dto.WidgetDto;
+import com.miro.widget.api.repository.InMemoryWidgetRepository;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -15,7 +17,8 @@ public class ConcurrentWidgetServiceTest {
         ExecutorService e = Executors.newFixedThreadPool(4);
         CountDownLatch latch = new CountDownLatch(4);
 
-        WidgetService service = new ConcurrentWidgetService();
+        WidgetRepository repository = new InMemoryWidgetRepository();
+        WidgetService service = new ConcurrentWidgetService(repository);
 
         e.submit(() -> {
             latch.countDown();
@@ -79,7 +82,7 @@ public class ConcurrentWidgetServiceTest {
         e.shutdown();
         e.awaitTermination(5, TimeUnit.SECONDS);
 
-        Assert.assertEquals(4, service.getAll().size());
+        Assert.assertEquals(4, service.findAll().size());
     }
 
     @Test
@@ -87,7 +90,8 @@ public class ConcurrentWidgetServiceTest {
         ExecutorService e = Executors.newFixedThreadPool(6);
         CountDownLatch latch = new CountDownLatch(6);
 
-        WidgetService service = new ConcurrentWidgetService();
+        WidgetRepository repository = new InMemoryWidgetRepository();
+        WidgetService service = new ConcurrentWidgetService(repository);
 
         e.submit(() -> {
             latch.countDown();
@@ -180,7 +184,7 @@ public class ConcurrentWidgetServiceTest {
         e.shutdown();
         e.awaitTermination(5, TimeUnit.SECONDS);
 
-        Assert.assertEquals(6, service.getAll().size());
+        Assert.assertEquals(6, service.findAll().size());
     }
 
     @Test
@@ -188,7 +192,8 @@ public class ConcurrentWidgetServiceTest {
         ExecutorService e = Executors.newFixedThreadPool(4);
         CountDownLatch latch = new CountDownLatch(4);
 
-        WidgetService service = new ConcurrentWidgetService();
+        WidgetRepository repository = new InMemoryWidgetRepository();
+        WidgetService service = new ConcurrentWidgetService(repository);
 
         e.submit(() -> {
             latch.countDown();
@@ -249,7 +254,7 @@ public class ConcurrentWidgetServiceTest {
         e.shutdown();
         e.awaitTermination(5, TimeUnit.SECONDS);
 
-        Assert.assertEquals(4, service.getAll().size());
+        Assert.assertEquals(4, service.findAll().size());
     }
 
     @Test
@@ -257,7 +262,8 @@ public class ConcurrentWidgetServiceTest {
         ExecutorService e = Executors.newFixedThreadPool(8);
         CountDownLatch latch = new CountDownLatch(6);
 
-        WidgetService service = new ConcurrentWidgetService();
+        WidgetRepository repository = new InMemoryWidgetRepository();
+        WidgetService service = new ConcurrentWidgetService(repository);
 
         e.submit(() -> {
             latch.countDown();
@@ -371,7 +377,7 @@ public class ConcurrentWidgetServiceTest {
         latch.await();
         e.shutdown();
         e.awaitTermination(5, TimeUnit.SECONDS);
-        Assert.assertEquals(6, service.getAll().size());
+        Assert.assertEquals(6, service.findAll().size());
     }
 
     @Test
@@ -379,7 +385,8 @@ public class ConcurrentWidgetServiceTest {
         ExecutorService e = Executors.newFixedThreadPool(12);
         CountDownLatch latch = new CountDownLatch(6);
 
-        WidgetService service = new ConcurrentWidgetService();
+        WidgetRepository repository = new InMemoryWidgetRepository();
+        WidgetService service = new ConcurrentWidgetService(repository);
 
         Future<WidgetDto> widget1 = e.submit(() -> {
             latch.countDown();
@@ -465,66 +472,66 @@ public class ConcurrentWidgetServiceTest {
         });
 
         e.submit(() -> {
-            System.out.println("Start delete widget1 after save" + Thread.currentThread().getName());
+            System.out.println("Start remove widget1 after save" + Thread.currentThread().getName());
             try {
                 WidgetDto widget = widget1.get();
                 service.delete(widget.getId());
-                System.out.println("Finish delete widget1 after save" + Thread.currentThread().getName());
+                System.out.println("Finish remove widget1 after save" + Thread.currentThread().getName());
             } catch (InterruptedException | ExecutionException e1) {
                 e1.printStackTrace();
             }
         });
 
         e.submit(() -> {
-            System.out.println("Start delete widget2 after save" + Thread.currentThread().getName());
+            System.out.println("Start remove widget2 after save" + Thread.currentThread().getName());
             try {
                 WidgetDto widget = widget2.get();
                 service.delete(widget.getId());
-                System.out.println("Finish delete widget2 after save" + Thread.currentThread().getName());
+                System.out.println("Finish remove widget2 after save" + Thread.currentThread().getName());
             } catch (InterruptedException | ExecutionException e1) {
                 e1.printStackTrace();
             }
         });
 
         e.submit(() -> {
-            System.out.println("Start delete widget3 after save" + Thread.currentThread().getName());
+            System.out.println("Start remove widget3 after save" + Thread.currentThread().getName());
             try {
                 WidgetDto widget = widget3.get();
                 service.delete(widget.getId());
-                System.out.println("Finish delete widget3 after save" + Thread.currentThread().getName());
+                System.out.println("Finish remove widget3 after save" + Thread.currentThread().getName());
             } catch (InterruptedException | ExecutionException e1) {
                 e1.printStackTrace();
             }
         });
 
         e.submit(() -> {
-            System.out.println("Start delete widget4 after save" + Thread.currentThread().getName());
+            System.out.println("Start remove widget4 after save" + Thread.currentThread().getName());
             try {
                 WidgetDto widget = widget4.get();
                 service.delete(widget.getId());
-                System.out.println("Finish delete widget4 after save" + Thread.currentThread().getName());
+                System.out.println("Finish remove widget4 after save" + Thread.currentThread().getName());
             } catch (InterruptedException | ExecutionException e1) {
                 e1.printStackTrace();
             }
         });
 
         e.submit(() -> {
-            System.out.println("Start delete widget5 after save" + Thread.currentThread().getName());
+            System.out.println("Start remove widget5 after save" + Thread.currentThread().getName());
             try {
                 WidgetDto widget = widget5.get();
                 service.delete(widget.getId());
-                System.out.println("Finish delete widget4 after save" + Thread.currentThread().getName());
+                System.out.println("Finish remove widget4 after save" + Thread.currentThread().getName());
             } catch (InterruptedException | ExecutionException e1) {
                 e1.printStackTrace();
             }
         });
 
         e.submit(() -> {
-            System.out.println("Start delete widget6 after save" + Thread.currentThread().getName());
+            System.out.println("Start remove widget6 after save" + Thread.currentThread().getName());
             try {
                 WidgetDto widget = widget6.get();
                 service.delete(widget.getId());
-                System.out.println("Finish delete widget4 after save" + Thread.currentThread().getName());
+                System.out.println("Finish remove widget4 after save" + Thread.currentThread().getName());
             } catch (InterruptedException | ExecutionException e1) {
                 e1.printStackTrace();
             }
@@ -533,14 +540,15 @@ public class ConcurrentWidgetServiceTest {
         latch.await();
         e.shutdown();
         e.awaitTermination(5, TimeUnit.SECONDS);
-        Assert.assertEquals(0, service.getAll().size());
+        Assert.assertEquals(0, service.findAll().size());
     }
 
     @Test
     public void delete_WhenDeletedWidgetIsNotExistInParallel_ThrowNoSuchElementException() throws InterruptedException {
         ExecutorService e = Executors.newFixedThreadPool(1);
 
-        WidgetService service = new ConcurrentWidgetService();
+        WidgetRepository repository = new InMemoryWidgetRepository();
+        WidgetService service = new ConcurrentWidgetService(repository);
 
         e.submit(() -> {
             service.delete(UUID.randomUUID());
@@ -548,6 +556,6 @@ public class ConcurrentWidgetServiceTest {
 
         e.shutdown();
         e.awaitTermination(5, TimeUnit.SECONDS);
-        Assert.assertEquals(0, service.getAll().size());
+        Assert.assertEquals(0, service.findAll().size());
     }
 }

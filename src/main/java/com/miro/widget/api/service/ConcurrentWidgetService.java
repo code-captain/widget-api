@@ -1,29 +1,31 @@
 package com.miro.widget.api.service;
 
+import com.miro.widget.api.contract.WidgetRepository;
 import com.miro.widget.api.contract.WidgetService;
 import com.miro.widget.api.model.dto.PageableDto;
 import com.miro.widget.api.model.dto.WidgetDto;
 import com.miro.widget.api.model.entity.Page;
 import com.miro.widget.api.model.entity.Widget;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.locks.StampedLock;
-import java.util.stream.Collectors;
+
+import static java.util.stream.Collectors.toList;
 
 @Service
+@RequiredArgsConstructor
 public class ConcurrentWidgetService implements WidgetService {
-    private Map<UUID, Widget> widgetMapById = new ConcurrentHashMap<>();
-    private NavigableMap<Long, Widget> widgetMapByZIndex = new ConcurrentSkipListMap<>();
-
+    @NonNull
+    private final WidgetRepository repository;
     private final StampedLock sl = new StampedLock();
 
     @Override
-    public WidgetDto getById(UUID uuid) {
-        Widget widget = widgetMapById.get(uuid);
+    public WidgetDto findById(UUID uuid) {
+        Widget widget = repository.findById(uuid);
         if (widget == null) {
             return null;
         }
@@ -31,51 +33,40 @@ public class ConcurrentWidgetService implements WidgetService {
     }
 
     @Override
-    public Page<WidgetDto> getPage(PageableDto meta) {
+    public Page<WidgetDto> findPage(PageableDto meta) {
         long itemsToSkip = (meta.getPage() - 1) * meta.getSize();
 
         long stamp = sl.tryOptimisticRead();
-        int count = widgetMapById.size();
+        long count = repository.count();
         if (count < itemsToSkip) {
-            return new Page<>(new ArrayList<>(), meta.getPage(), meta.getSize(), count);
+            return Page.createEmptyPage(meta, count);
         }
-        List<WidgetDto> result = widgetMapByZIndex.values().stream()
-                .map(WidgetDto::fromEntity)
-                .skip(itemsToSkip)
-                .limit(meta.getSize())
-                .collect(Collectors.toList());
-
+        List<WidgetDto> widgets = findAllSortByZIndex(itemsToSkip, meta.getSize());
         if (!sl.validate(stamp)) {
             stamp = sl.readLock();
             try {
-                count = widgetMapById.size();
+                count = repository.count();
                 if (count < itemsToSkip) {
-                    return new Page<>(new ArrayList<>(), meta.getPage(), meta.getSize(), count);
+                    return Page.createEmptyPage(meta, count);
                 }
-                result = widgetMapByZIndex.values().stream()
-                        .map(WidgetDto::fromEntity)
-                        .skip(itemsToSkip)
-                        .limit(meta.getSize())
-                        .collect(Collectors.toList());
+                widgets = findAllSortByZIndex(itemsToSkip, meta.getSize());
+
             } finally {
                 sl.unlockRead(stamp);
             }
         }
-        return new Page<>(result, meta.getPage(), meta.getSize(), count);
+        return Page.createPage(widgets, meta, count);
     }
 
     @Override
-    public List<WidgetDto> getAll() {
+    public List<WidgetDto> findAll() {
         long stamp = sl.tryOptimisticRead();
-        List<WidgetDto> result = widgetMapByZIndex.values().stream()
-                .map(WidgetDto::fromEntity)
-                .collect(Collectors.toList());
+
+        List<WidgetDto> result = findAllSortByZIndex();
         if (!sl.validate(stamp)) {
             stamp = sl.readLock();
             try {
-                result = widgetMapByZIndex.values().stream()
-                        .map(WidgetDto::fromEntity)
-                        .collect(Collectors.toList());
+                result = findAllSortByZIndex();
             } finally {
                 sl.unlockRead(stamp);
             }
@@ -86,19 +77,19 @@ public class ConcurrentWidgetService implements WidgetService {
     @Override
     public WidgetDto save(WidgetDto dto) {
         Widget newest = Widget.fromDto(dto);
+
         long stamp = sl.readLock();
         try {
             while (true) {
                 Set<Widget> shiftedElementsCopies = new HashSet<>();
                 if (newest.getZIndex() == null) {
-                    if (widgetMapById.size() == 0) {
+                    if (repository.count() == 0) {
                         newest.setZIndex(0L);
                     } else {
-                        Long lastKey = widgetMapByZIndex.lastKey();
-                        newest.setZIndex(lastKey + 1);
+                        newest.setZIndex(repository.findHighestZIndex() + 1);
                     }
                 } else {
-                    shiftedElementsCopies = getElementsCopiesShiftFrom(newest.getZIndex());
+                    shiftedElementsCopies = createCopiesWithShiftZIndexAt(newest.getZIndex());
                 }
                 long ws = sl.tryConvertToWriteLock(stamp);
                 if (ws != 0L) {
@@ -106,12 +97,9 @@ public class ConcurrentWidgetService implements WidgetService {
 
                     newest.setId(UUID.randomUUID());
                     newest.setModifiedAt(Date.from(Instant.now()));
-                    widgetMapById.put(newest.getId(), newest);
-                    widgetMapByZIndex.put(newest.getZIndex(), newest);
-                    shiftedElementsCopies.forEach(element -> {
-                        widgetMapById.put(element.getId(), element);
-                        widgetMapByZIndex.put(element.getZIndex(), element);
-                    });
+
+                    repository.saveOrUpdate(newest);
+                    repository.saveOrUpdate(shiftedElementsCopies);
 
                     return WidgetDto.fromEntity(newest);
                 } else {
@@ -133,7 +121,7 @@ public class ConcurrentWidgetService implements WidgetService {
         long stamp = sl.readLock();
         try {
             while (true) {
-                Widget oldest = widgetMapById.get(uuid);
+                Widget oldest = repository.findById(uuid);
                 if (oldest == null) {
                     throw new NoSuchElementException();
                 }
@@ -142,7 +130,7 @@ public class ConcurrentWidgetService implements WidgetService {
                 if (!oldest.getZIndex()
                         .equals(newest.getZIndex())) {
 
-                    shiftedElementsCopies = getElementsCopiesShiftFrom(newest.getZIndex(), oldest.getZIndex());
+                    shiftedElementsCopies = createCopiesWithShiftZIndexAt(newest.getZIndex(), oldest.getZIndex());
                 }
 
                 long ws = sl.tryConvertToWriteLock(stamp);
@@ -151,14 +139,10 @@ public class ConcurrentWidgetService implements WidgetService {
 
                     newest.setId(oldest.getId());
                     newest.setModifiedAt(Date.from(Instant.now()));
-                    widgetMapById.remove(oldest.getId());
-                    widgetMapByZIndex.remove(oldest.getZIndex());
-                    widgetMapById.put(newest.getId(), newest);
-                    widgetMapByZIndex.put(newest.getZIndex(), newest);
-                    shiftedElementsCopies.forEach(element -> {
-                        widgetMapById.put(element.getId(), element);
-                        widgetMapByZIndex.put(element.getZIndex(), element);
-                    });
+
+                    repository.remove(oldest);
+                    repository.saveOrUpdate(newest);
+                    repository.saveOrUpdate(shiftedElementsCopies);
 
                     return WidgetDto.fromEntity(newest);
                 } else {
@@ -176,7 +160,7 @@ public class ConcurrentWidgetService implements WidgetService {
         long stamp = sl.readLock();
         try {
             while (true) {
-                Widget oldest = widgetMapById.get(uuid);
+                Widget oldest = repository.findById(uuid);
                 if (oldest == null) {
                     throw new NoSuchElementException();
                 }
@@ -185,10 +169,7 @@ public class ConcurrentWidgetService implements WidgetService {
                 if (ws != 0L) {
                     stamp = ws;
 
-                    widgetMapById.remove(oldest.getId());
-                    return WidgetDto.fromEntity(
-                            widgetMapByZIndex.remove(oldest.getZIndex())
-                    );
+                    return WidgetDto.fromEntity(repository.remove(oldest));
                 } else {
                     sl.unlockRead(stamp);
                     stamp = sl.writeLock();
@@ -199,12 +180,24 @@ public class ConcurrentWidgetService implements WidgetService {
         }
     }
 
-    private Set<Widget> getElementsCopiesShiftFrom(Long zIndex) {
-        return getElementsCopiesShiftFrom(zIndex, null);
+    private List<WidgetDto> findAllSortByZIndex(long skip, long take) {
+        return repository.findAllSortByZIndex(skip,  take).stream()
+                .map(WidgetDto::fromEntity)
+                .collect(toList());
     }
 
-    private Set<Widget> getElementsCopiesShiftFrom(Long zIndex, Long excludeIndex) {
-        Long ceilingZIndex = widgetMapByZIndex.ceilingKey(zIndex);
+    private List<WidgetDto> findAllSortByZIndex() {
+        return repository.findAllSortByZIndex().stream()
+                .map(WidgetDto::fromEntity)
+                .collect(toList());
+    }
+
+    private Set<Widget> createCopiesWithShiftZIndexAt(Long zIndex) {
+        return createCopiesWithShiftZIndexAt(zIndex, null);
+    }
+
+    private Set<Widget> createCopiesWithShiftZIndexAt(Long zIndex, Long excludeIndex) {
+        Long ceilingZIndex = repository.findLeastZIndexGreaterThanOrEqualTo(zIndex);
         if (ceilingZIndex == null
                 || isDistanceGreaterThanZero(ceilingZIndex, zIndex)) {
 
@@ -212,7 +205,7 @@ public class ConcurrentWidgetService implements WidgetService {
         }
 
         Set<Widget> result = new LinkedHashSet<>();
-        NavigableMap<Long, Widget> tailElementsMap = widgetMapByZIndex.tailMap(ceilingZIndex, true);
+        NavigableMap<Long, Widget> tailElementsMap = repository.findAllWithZIndexGreaterThanOrEqualTo(ceilingZIndex);
         for (Map.Entry<Long, Widget> e
                 : tailElementsMap.entrySet()) {
 

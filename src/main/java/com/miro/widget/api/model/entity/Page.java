@@ -1,6 +1,10 @@
 package com.miro.widget.api.model.entity;
 
-import lombok.*;
+import com.miro.widget.api.model.dto.PageableDto;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.NonNull;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -30,5 +34,13 @@ public class Page<T> {
 
     public int getItemCount() {
         return items.size();
+    }
+
+    public static <T> Page<T> createEmptyPage(PageableDto meta, long totalItemsCount) {
+        return new Page<T>(Collections.emptyList(), meta.getPage(), meta.getSize(), totalItemsCount);
+    }
+
+    public static <T> Page<T> createPage(Collection<T> items, PageableDto meta, long totalItemsCount) {
+        return new Page<T>(items, meta.getPage(), meta.getSize(), totalItemsCount);
     }
 }

@@ -16,7 +16,7 @@ public enum WidgetLinkRelType {
 
     UPDATE("update"),
 
-    DELETE("delete");
+    DELETE("remove");
 
     @NonNull
     private final String title;
