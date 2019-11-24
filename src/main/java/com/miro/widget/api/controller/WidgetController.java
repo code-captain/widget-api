@@ -2,14 +2,28 @@ package com.miro.widget.api.controller;
 
 import com.miro.widget.api.contract.WidgetService;
 import com.miro.widget.api.model.dto.WidgetDto;
+import com.miro.widget.api.model.response.WidgetLinkRelType;
+import com.miro.widget.api.model.response.WidgetResource;
+import com.miro.widget.api.model.response.WidgetResources;
+import com.miro.widget.api.model.response.WidgetResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.hateoas.Link;
+import org.springframework.hateoas.Resource;
+import org.springframework.hateoas.Resources;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
-@RestController
+import static org.springframework.hateoas.core.DummyInvocationUtils.methodOn;
+import static org.springframework.hateoas.mvc.ControllerLinkBuilder.linkTo;
+
+@Controller
 @RequestMapping(path = "api/widgets")
 @RequiredArgsConstructor
 public class WidgetController {
@@ -17,27 +31,59 @@ public class WidgetController {
     private final WidgetService service;
 
     @GetMapping
-    public ResponseEntity<Collection<WidgetDto>> getAll() {
-        return ResponseEntity.ok(service.getAll());
+    public ResponseEntity<Resources<WidgetResponse>> getAll() {
+        Collection<WidgetDto> widgets = service.getAll();
+        List<WidgetResponse> widgetResponses = widgets.stream()
+                .map(widget -> {
+                    WidgetResponse widgetResponse = convertToResponse(widget);
+                    widgetResponse.add(
+                            generateWidgetLink(widget.getId(), true));
+                    return widgetResponse;
+                }).collect(Collectors.toList());
+
+        Resources<WidgetResponse> result = new WidgetResources<>(
+                widgetResponses,
+                generateWidgetsLink(true),
+                generateCreateLink()
+        );
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping(path = "/{id}")
-    public ResponseEntity<WidgetDto> getOne(@PathVariable UUID id) {
-        return ResponseEntity.ok(service.getById(id));
+    public ResponseEntity<Resource<WidgetResponse>> getOne(@PathVariable UUID id) {
+        WidgetDto widget = service.getById(id);
+        if (widget == null) {
+            return ResponseEntity.notFound().build();
+        }
+        Resource<WidgetResponse> result = new WidgetResource<>(
+                convertToResponse(widget),
+                generateWidgetResourceLinks(widget.getId())
+        );
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping
-    public ResponseEntity create(@RequestBody WidgetDto widget) {
-        return ResponseEntity.ok(service.save(widget));
+    public ResponseEntity<Resource<WidgetResponse>> create(@RequestBody WidgetDto widget) {
+        WidgetDto saved = service.save(widget);
+        Resource<WidgetResponse> result = new WidgetResource<>(
+                convertToResponse(saved),
+                generateWidgetResourceLinks(saved.getId())
+        );
+        return ResponseEntity.ok(result);
     }
 
     @PutMapping(path = "/{id}")
-    public ResponseEntity update(@PathVariable UUID id, @RequestBody WidgetDto widget) {
+    public ResponseEntity<Resource<WidgetResponse>> update(@PathVariable UUID id, @RequestBody WidgetDto widget) {
         WidgetDto current = service.getById(id);
         if (current == null) {
             return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.ok(service.update(id, widget));
+        WidgetDto updated = service.update(id, widget);
+        Resource<WidgetResponse> result = new WidgetResource<>(
+                convertToResponse(updated),
+                generateWidgetResourceLinks(updated.getId())
+        );
+        return ResponseEntity.ok(result);
     }
 
     @DeleteMapping(path = "/{id}")
@@ -46,7 +92,66 @@ public class WidgetController {
         if (current == null) {
             return ResponseEntity.notFound().build();
         }
-        service.delete(id);
-        return ResponseEntity.ok().build();
+        WidgetDto deleted = service.delete(id);
+        Resource<WidgetResponse> result = new WidgetResource<>(
+                convertToResponse(deleted),
+                generateWidgetsLink(false)
+        );
+        return ResponseEntity.ok(result);
+    }
+
+    private Link[] generateWidgetResourceLinks(UUID id) {
+        return new Link[] {
+            generateWidgetLink(id, true),
+            generateUpdateLink(id),
+            generateDeleteLink(id),
+            generateWidgetsLink(false)
+        };
+    }
+
+    private Link generateWidgetLink(UUID id, boolean isSelf) {
+        return linkTo(methodOn(getClass()).getOne(id))
+                .withRel(isSelf
+                        ? Link.REL_SELF
+                        : WidgetLinkRelType.WIDGET.getTitle())
+                .withType(HttpMethod.GET.name());
+    }
+
+    private Link generateWidgetsLink(boolean isSelf) {
+        return linkTo(methodOn(getClass()).getAll())
+                .withRel(isSelf
+                        ? Link.REL_SELF
+                        : WidgetLinkRelType.WIDGETS.getTitle())
+                .withType(HttpMethod.GET.name());
+    }
+
+    private Link generateCreateLink() {
+        return linkTo(methodOn(getClass()).create(null))
+                .withRel(WidgetLinkRelType.CREATE.getTitle())
+                .withType(HttpMethod.POST.name());
+    }
+
+    private Link generateUpdateLink(UUID id) {
+        return linkTo(methodOn(getClass()).update(id, null))
+                .withRel(WidgetLinkRelType.UPDATE.getTitle())
+                .withType(HttpMethod.PUT.name());
+    }
+
+    private Link generateDeleteLink(UUID id) {
+        return linkTo(methodOn(getClass()).delete(id))
+                .withRel(WidgetLinkRelType.DELETE.getTitle())
+                .withType(HttpMethod.DELETE.name());
+    }
+
+    private static WidgetResponse convertToResponse(WidgetDto dto) {
+        return new WidgetResponse(
+                dto.getId(),
+                dto.getXCoordinate(),
+                dto.getYCoordinate(),
+                dto.getZIndex(),
+                dto.getWidth(),
+                dto.getHeight(),
+                dto.getModifiedAt()
+        );
     }
 }
