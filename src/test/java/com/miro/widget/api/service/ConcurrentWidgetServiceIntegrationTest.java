@@ -21,7 +21,7 @@ public class ConcurrentWidgetServiceIntegrationTest {
     private WidgetService service;
 
     @Before
-    public void init() {
+    public void setUp() {
         service.deleteAll();
     }
 

@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.hateoas.Link;
 import org.springframework.hateoas.Resource;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -66,7 +68,7 @@ public class WidgetController {
         return ResponseEntity.ok(result);
     }
 
-    @PostMapping
+    @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Resource<WidgetResponse>> create(
             @Valid @RequestBody WidgetRequest request
     ) {
@@ -75,7 +77,7 @@ public class WidgetController {
                 toResponse(saved),
                 generateWidgetResourceLinks(saved.getId())
         );
-        return ResponseEntity.ok(result);
+        return new ResponseEntity<>(result, HttpStatus.CREATED);
     }
 
     @PutMapping(path = "/{id}")

@@ -33,6 +33,6 @@ public class WidgetResponse extends WidgetResourceSupport {
     private long height;
 
     @JsonProperty(value = "modifiedAt")
-    @JsonFormat(pattern="yyyy-MM-dd HH:mm:ss")
+    @JsonFormat(pattern="yyyy-MM-dd HH:mm:ss", timezone = "Asia/Yekaterinburg")
     private Date modifiedAt;
 }
