@@ -15,7 +15,6 @@ import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.rules.ExpectedException;
 
-import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -196,7 +195,7 @@ public class ConcurrentWidgetServiceTest {
         doReturn(1L).when(repository).findLeastZIndexGreaterThanOrEqualTo(eq(1L));
 
         Widget test = createWidget(1L);
-        doReturn(createWidgetByZIndexMap(test)).when(repository).findAllWithZIndexGreaterThanOrEqualTo(eq(1L));
+        doReturn(new TreeSet<>(Collections.singletonList(test))).when(repository).findAllSortByZIndexGreaterThanOrEqualTo(eq(1L));
 
         WidgetDto saved = service.save(fromEntity(test));
 
@@ -237,10 +236,10 @@ public class ConcurrentWidgetServiceTest {
         Widget test = createWidget(2L);
         doReturn(test).when(repository).findById(eq(test.getId()));
 
-        Widget updated = createWidget(5L);
+        WidgetDto updated = fromEntity(createWidget(5L));
         updated.setXCoordinate(110);
         updated.setYCoordinate(120);
-        WidgetDto testable = service.update(test.getId(), fromEntity(updated));
+        WidgetDto testable = service.update(test.getId(), updated);
 
         verify(repository, times(1)).remove(any(Widget.class));
         verify(repository, times(1)).saveOrUpdate(any(Widget.class));
@@ -307,8 +306,7 @@ public class ConcurrentWidgetServiceTest {
                 50,
                 zIndex,
                 100,
-                50,
-                Date.from(Instant.now())
+                50
         );
     }
 
@@ -319,8 +317,7 @@ public class ConcurrentWidgetServiceTest {
                 50,
                 5L,
                 100,
-                50,
-                Date.from(Instant.now())
+                50
         );
     }
 

@@ -11,8 +11,8 @@ import java.util.stream.Collectors;
 
 @Component
 public class InMemoryWidgetRepository implements WidgetRepository {
-    private Map<UUID, Widget> widgetMapById = new ConcurrentHashMap<>();
-    private NavigableMap<Long, Widget> widgetMapByZIndex = new ConcurrentSkipListMap<>();
+    private Map<UUID, Widget> widgetMapById = new HashMap<>();
+    private NavigableMap<Long, Widget> widgetMapByZIndex = new TreeMap<>();
 
     @Override
     public long count() {
@@ -21,7 +21,9 @@ public class InMemoryWidgetRepository implements WidgetRepository {
 
     @Override
     public Long findHighestZIndex() {
-        return widgetMapByZIndex.lastKey();
+        return widgetMapByZIndex.size() == 0
+                ? null
+                : widgetMapByZIndex.lastKey();
     }
 
     @Override
@@ -48,8 +50,8 @@ public class InMemoryWidgetRepository implements WidgetRepository {
     }
 
     @Override
-    public NavigableMap<Long, Widget> findAllWithZIndexGreaterThanOrEqualTo(long index) {
-        return widgetMapByZIndex.tailMap(index, true);
+    public NavigableSet<Widget> findAllSortByZIndexGreaterThanOrEqualTo(long index) {
+        return new TreeSet<>(widgetMapByZIndex.tailMap(index, true).values());
     }
 
     @Override

@@ -2,7 +2,7 @@ package com.miro.widget.api.repository;
 
 import com.miro.widget.api.contract.WidgetRepository;
 import com.miro.widget.api.model.entity.Widget;
-import org.hamcrest.core.IsInstanceOf;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -10,7 +10,6 @@ import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.rules.ExpectedException;
 
-import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -47,9 +46,9 @@ public class InMemoryWidgetRepositoryTest {
     }
 
     @Test
-    public void findHighestZIndex_WhenWidgetsWereNotSaved_ThrowNoSuchElementException() {
-        expectedException.expect(IsInstanceOf.instanceOf(NoSuchElementException.class));
-        repository.findHighestZIndex();
+    public void findHighestZIndex_WhenWidgetsWereNotSaved_ReturnNull() {
+        Long highestZIndex = repository.findHighestZIndex();
+        Assert.assertNull(highestZIndex);
     }
 
     @Test
@@ -124,7 +123,7 @@ public class InMemoryWidgetRepositoryTest {
 
     @Test
     public void findAllWithZIndexGreaterThanOrEqualTo_WhenWidgetsWereNotSaved_ReturnEmptyNavigableMap() {
-        assertEquals(Collections.emptyNavigableMap(), repository.findAllWithZIndexGreaterThanOrEqualTo(1));
+        assertEquals(Collections.emptyNavigableSet(), repository.findAllSortByZIndexGreaterThanOrEqualTo(1));
     }
 
     @Test
@@ -132,7 +131,7 @@ public class InMemoryWidgetRepositoryTest {
         Set<Widget> test = createWidgets(4);
         repository.saveOrUpdate(test);
 
-        NavigableMap<Long, Widget> testable = repository.findAllWithZIndexGreaterThanOrEqualTo(2);
+        NavigableSet<Widget> testable = repository.findAllSortByZIndexGreaterThanOrEqualTo(2);
         List<Widget> target = test.stream().skip(2).limit(2).collect(Collectors.toList());
         assertEquals(createWidgetByZIndexMap(target), testable);
     }
@@ -180,8 +179,7 @@ public class InMemoryWidgetRepositoryTest {
                 50,
                 zIndex,
                 100,
-                50,
-                Date.from(Instant.now())
+                50
         );
     }
 }

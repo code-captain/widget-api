@@ -25,217 +25,161 @@ public class ConcurrentWidgetService implements WidgetService {
 
     @Override
     public WidgetDto findById(UUID uuid) {
-        Widget widget = repository.findById(uuid);
-        if (widget == null) {
-            return null;
+        long stamp = sl.readLock();
+        try {
+            Widget widget = repository.findById(uuid);
+            return widget != null
+                    ? convertFromEntity(widget)
+                    : null;
+        } finally {
+            sl.unlockRead(stamp);
         }
-        return fromEntity(widget);
     }
 
     @Override
     public Page<WidgetDto> findPage(PageableDto meta) {
-        if (meta.getPage() <= 0) {
-            throw new IllegalArgumentException("Field `page` must be greater than 0");
-        }
-        if (meta.getSize() <= 0) {
-            throw new IllegalArgumentException("Field `size` must be greater than 0");
-        }
-
+        assertPageableIsValid(meta);
+        long count;
+        Set<Widget> widgets;
         long itemsToSkip = (meta.getPage() - 1) * meta.getSize();
 
-        long stamp = sl.tryOptimisticRead();
-        long count = repository.count();
+        long stamp = sl.readLock();
+        try {
+            count = repository.count();
+            widgets = repository.findAllSortByZIndex(itemsToSkip,  meta.getSize());
+        } finally {
+            sl.unlockRead(stamp);
+        }
+
         if (count <= itemsToSkip) {
             return Page.createEmptyPage(meta, count);
         }
-        List<WidgetDto> widgets = findAllSortByZIndex(itemsToSkip, meta.getSize());
-        if (!sl.validate(stamp)) {
-            stamp = sl.readLock();
-            try {
-                count = repository.count();
-                if (count <= itemsToSkip) {
-                    return Page.createEmptyPage(meta, count);
-                }
-                widgets = findAllSortByZIndex(itemsToSkip, meta.getSize());
+        List<WidgetDto> widgetDtoList = widgets.stream()
+                .map(ConcurrentWidgetService::convertFromEntity)
+                .collect(toList());
 
-            } finally {
-                sl.unlockRead(stamp);
-            }
-        }
-        return Page.createPage(widgets, meta, count);
+        return Page.createPage(widgetDtoList, meta, count);
     }
 
     @Override
     public List<WidgetDto> findAll() {
-        long stamp = sl.tryOptimisticRead();
-
-        List<WidgetDto> result = findAllSortByZIndex();
-        if (!sl.validate(stamp)) {
-            stamp = sl.readLock();
-            try {
-                result = findAllSortByZIndex();
-            } finally {
-                sl.unlockRead(stamp);
-            }
+        Set<Widget> widgets;
+        long stamp = sl.readLock();
+        try {
+            widgets = repository.findAllSortByZIndex();
+        } finally {
+            sl.unlockRead(stamp);
         }
-        return result;
+        return widgets.stream()
+                .map(ConcurrentWidgetService::convertFromEntity)
+                .collect(toList());
     }
 
     @Override
     public WidgetDto save(WidgetDto dto) {
-        Widget newest = fromDto(dto);
-
-        long stamp = sl.readLock();
+        long stamp = sl.writeLock();
         try {
-            while (true) {
-                Set<Widget> shiftedElementsCopies = new HashSet<>();
-                if (newest.getZIndex() == null) {
-                    if (repository.count() == 0) {
-                        newest.setZIndex(0L);
-                    } else {
-                        newest.setZIndex(repository.findHighestZIndex() + 1);
-                    }
-                } else {
-                    shiftedElementsCopies = createCopiesWithShiftZIndexAt(newest.getZIndex());
-                }
-                long ws = sl.tryConvertToWriteLock(stamp);
-                if (ws != 0L) {
-                    stamp = ws;
-
-                    newest.setId(UUID.randomUUID());
-                    newest.setModifiedAt(Date.from(Instant.now()));
-
-                    repository.saveOrUpdate(newest);
-                    repository.saveOrUpdate(shiftedElementsCopies);
-
-                    return fromEntity(newest);
-                } else {
-                    sl.unlockRead(stamp);
-                    stamp = sl.writeLock();
-                }
+            if (dto.getZIndex() == null) {
+                Long highestZIndex = repository.findHighestZIndex();
+                dto.setZIndex(highestZIndex != null
+                        ? highestZIndex + 1
+                        : 0);
             }
+
+            if (isNeedToShiftTailWidgetsAt(dto.getZIndex())) {
+                repository.saveOrUpdate(
+                        getShiftedTailWidgetsAt(dto.getZIndex()));
+            }
+            dto.setId(UUID.randomUUID());
+            dto.setModifiedAt(Date.from(Instant.now()));
+            Widget newest = convertFromDto(dto);
+            repository.saveOrUpdate(newest);
+
+            return dto;
         } finally {
-            sl.unlock(stamp);
+            sl.unlockWrite(stamp);
         }
     }
 
     @Override
     public WidgetDto update(UUID uuid, WidgetDto dto) {
-        if (dto.getZIndex() == null) {
-            throw new IllegalArgumentException("Field `zIndex` must be not null");
-        }
-        Widget newest = fromDto(dto);
-        long stamp = sl.readLock();
+        assertUpdatedWidgetIsValid(dto);
+
+        long stamp = sl.writeLock();
         try {
-            while (true) {
-                Widget oldest = repository.findById(uuid);
-                if (oldest == null) {
-                    throw new NoSuchElementException();
-                }
+            Widget oldest = repository.findById(uuid);
+            assertWidgetWasFound(uuid, oldest);
 
-                Set<Widget> shiftedElementsCopies = new HashSet<>();
-                if (!oldest.getZIndex()
-                        .equals(newest.getZIndex())) {
-
-                    shiftedElementsCopies = createCopiesWithShiftZIndexAt(newest.getZIndex(), oldest.getZIndex());
-                }
-
-                long ws = sl.tryConvertToWriteLock(stamp);
-                if (ws != 0L) {
-                    stamp = ws;
-
-                    newest.setId(oldest.getId());
-                    newest.setModifiedAt(Date.from(Instant.now()));
-
-                    repository.remove(oldest);
-                    repository.saveOrUpdate(newest);
-                    repository.saveOrUpdate(shiftedElementsCopies);
-
-                    return fromEntity(newest);
-                } else {
-                    sl.unlockRead(stamp);
-                    stamp = sl.writeLock();
-                }
+            if (isNeedToShiftTailWidgetsAt(dto.getZIndex())) {
+                repository.saveOrUpdate(
+                        getShiftedTailWidgetsAt(dto.getZIndex(), oldest.getZIndex()));
             }
+            dto.setId(uuid);
+            dto.setModifiedAt(Date.from(Instant.now()));
+            Widget newest = convertFromDto(dto);
+            repository.remove(oldest);
+            repository.saveOrUpdate(newest);
+
+            return dto;
         } finally {
-            sl.unlock(stamp);
+            sl.unlockWrite(stamp);
         }
     }
 
     @Override
     public WidgetDto delete(UUID uuid) {
-        long stamp = sl.readLock();
+        long stamp = sl.writeLock();
         try {
-            while (true) {
-                Widget oldest = repository.findById(uuid);
-                if (oldest == null) {
-                    throw new NoSuchElementException();
-                }
+            Widget oldest = repository.findById(uuid);
+            assertWidgetWasFound(uuid, oldest);
 
-                long ws = sl.tryConvertToWriteLock(stamp);
-                if (ws != 0L) {
-                    stamp = ws;
-
-                    return fromEntity(repository.remove(oldest));
-                } else {
-                    sl.unlockRead(stamp);
-                    stamp = sl.writeLock();
-                }
-            }
+            Widget removed = repository.remove(oldest);
+            return convertFromEntity(removed);
         } finally {
-            sl.unlock(stamp);
+            sl.unlockWrite(stamp);
         }
     }
 
     @Override
     public void deleteAll() {
-        repository.removeAll();
-    }
-
-    private List<WidgetDto> findAllSortByZIndex(long skip, long take) {
-        return repository.findAllSortByZIndex(skip,  take).stream()
-                .map(ConcurrentWidgetService::fromEntity)
-                .collect(toList());
-    }
-
-    private List<WidgetDto> findAllSortByZIndex() {
-        return repository.findAllSortByZIndex().stream()
-                .map(ConcurrentWidgetService::fromEntity)
-                .collect(toList());
-    }
-
-    private Set<Widget> createCopiesWithShiftZIndexAt(Long zIndex) {
-        return createCopiesWithShiftZIndexAt(zIndex, null);
-    }
-
-    private Set<Widget> createCopiesWithShiftZIndexAt(Long zIndex, Long excludeIndex) {
-        Long ceilingZIndex = repository.findLeastZIndexGreaterThanOrEqualTo(zIndex);
-        if (ceilingZIndex == null
-                || isDistanceGreaterThanZero(ceilingZIndex, zIndex)) {
-
-            return Collections.emptySet();
+        long stamp = sl.writeLock();
+        try {
+            repository.removeAll();
+        } finally {
+            sl.unlockWrite(stamp);
         }
+    }
 
+    private Set<Widget> getShiftedTailWidgetsAt(Long zIndex) {
+        return getShiftedTailWidgetsAt(zIndex, null);
+    }
+
+    private Set<Widget> getShiftedTailWidgetsAt(Long zIndex, Long excludeIndex) {
         Set<Widget> result = new LinkedHashSet<>();
-        NavigableMap<Long, Widget> tailElementsMap = repository.findAllWithZIndexGreaterThanOrEqualTo(ceilingZIndex);
-        for (Map.Entry<Long, Widget> e
-                : tailElementsMap.entrySet()) {
 
-            Long prevKey = tailElementsMap.lowerKey(e.getKey());
-            if ((prevKey != null
-                    && isDistanceGreaterThanOne(e.getKey(), prevKey)
-            ) || e.getKey().equals(excludeIndex)) {
+        NavigableSet<Widget> allWithZIndexGreaterThanOrEqualTo = repository.findAllSortByZIndexGreaterThanOrEqualTo(zIndex);
+        for (Widget widget : allWithZIndexGreaterThanOrEqualTo) {
+
+            Widget prevWidget = allWithZIndexGreaterThanOrEqualTo.lower(widget);
+            if ((prevWidget != null
+                    && isDistanceGreaterThanOne(widget.getZIndex(), prevWidget.getZIndex())
+            ) || widget.getZIndex().equals(excludeIndex)) {
 
                 break;
             }
 
-            Widget copy = copy(e.getValue());
-            copy.setZIndex(copy.getZIndex() + 1);
-            copy.setModifiedAt(Date.from(Instant.now()));
+            Widget copy = createCopy(widget);
+            copy.incrementZIndex();
             result.add(copy);
         }
 
         return result;
+    }
+
+    private boolean isNeedToShiftTailWidgetsAt(Long newZIndex) {
+        Long ceilingZIndex = repository.findLeastZIndexGreaterThanOrEqualTo(newZIndex);
+        return ceilingZIndex != null
+                && !isDistanceGreaterThanZero(ceilingZIndex, newZIndex);
     }
 
     private static boolean isDistanceGreaterThanOne(long f, long s) {
@@ -250,17 +194,40 @@ public class ConcurrentWidgetService implements WidgetService {
         return Math.abs(f - s);
     }
 
-    private static Widget fromDto(WidgetDto dto) {
-        Widget widget = new Widget();
-        widget.setXCoordinate(dto.getXCoordinate());
-        widget.setYCoordinate(dto.getYCoordinate());
-        widget.setZIndex(dto.getZIndex());
-        widget.setWidth(dto.getWidth());
-        widget.setHeight(dto.getHeight());
-        return widget;
+    private static void assertWidgetWasFound(UUID uuid, Widget widget) {
+        if (widget == null) {
+            throw new NoSuchElementException(String.format("Widget with id `%s` was not found", uuid));
+        }
     }
 
-    private static WidgetDto fromEntity(Widget entity) {
+    private static void assertUpdatedWidgetIsValid(WidgetDto dto) {
+        if (dto.getZIndex() == null) {
+            throw new IllegalArgumentException("Field `zIndex` must be not null");
+        }
+    }
+
+    private static void assertPageableIsValid(PageableDto dto) {
+        if (dto.getPage() <= 0) {
+            throw new IllegalArgumentException("Field `page` must be greater than 0");
+        }
+        if (dto.getSize() <= 0) {
+            throw new IllegalArgumentException("Field `size` must be greater than 0");
+        }
+
+    }
+
+    private static Widget convertFromDto(WidgetDto dto) {
+        return new Widget(
+                dto.getId(),
+                dto.getXCoordinate(),
+                dto.getYCoordinate(),
+                dto.getZIndex(),
+                dto.getHeight(),
+                dto.getWidth()
+        );
+    }
+
+    private static WidgetDto convertFromEntity(Widget entity) {
         return new WidgetDto(
                 entity.getId(),
                 entity.getXCoordinate(),
@@ -272,15 +239,14 @@ public class ConcurrentWidgetService implements WidgetService {
         );
     }
 
-    private static Widget copy(Widget self) {
+    private static Widget createCopy(Widget self) {
         return new Widget(
                 self.getId(),
                 self.getXCoordinate(),
                 self.getYCoordinate(),
                 self.getZIndex(),
                 self.getWidth(),
-                self.getHeight(),
-                self.getModifiedAt()
+                self.getHeight()
         );
     }
 }
