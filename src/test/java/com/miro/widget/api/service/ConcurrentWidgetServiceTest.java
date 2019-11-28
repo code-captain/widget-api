@@ -20,6 +20,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptySet;
+import static java.util.stream.Collectors.toCollection;
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -151,12 +152,13 @@ public class ConcurrentWidgetServiceTest {
 
     @Test
     public void save_WhenWidgetsAreNotExistsAndZIndexIsNull_ReturnSavedWidgetWithZeroZIndex() {
-        doReturn(0L).when(repository).count();
+        doReturn(null).when(repository).findHighestZIndex();
+        doReturn(null).when(repository).findLeastZIndexGreaterThanOrEqualTo(anyLong());
         Widget test = createWidget(null);
         WidgetDto saved = service.save(fromEntity(test));
 
         verify(repository, times(1)).saveOrUpdate(any(Widget.class));
-        verify(repository, times(1)).saveOrUpdate(anyCollection());
+        verify(repository, never()).saveOrUpdate(anyCollection());
 
         Assert.assertNotNull(saved);
         assertNotEquals(test.getId(), saved.getId());
@@ -171,13 +173,12 @@ public class ConcurrentWidgetServiceTest {
     public void save_WhenWidgetsAreExistsAndZIndexIsNull_ReturnSavedWidgetWithHighestZIndex() {
         doReturn(1L).when(repository).count();
         doReturn(1L).when(repository).findHighestZIndex();
-        //doReturn(null).when(repository).findLeastZIndexGreaterThanOrEqualTo(eq(1L));
 
         Widget test = createWidget(null);
         WidgetDto saved = service.save(fromEntity(test));
 
         verify(repository, times(1)).saveOrUpdate(any(Widget.class));
-        verify(repository, times(1)).saveOrUpdate(anyCollection());
+        verify(repository, never()).saveOrUpdate(anyCollection());
 
         Assert.assertNotNull(saved);
         assertNotEquals(test.getId(), saved.getId());
@@ -195,7 +196,8 @@ public class ConcurrentWidgetServiceTest {
         doReturn(1L).when(repository).findLeastZIndexGreaterThanOrEqualTo(eq(1L));
 
         Widget test = createWidget(1L);
-        doReturn(new TreeSet<>(Collections.singletonList(test))).when(repository).findAllSortByZIndexGreaterThanOrEqualTo(eq(1L));
+        doReturn(Stream.of(test).collect(Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(Widget::getZIndex)))))
+                .when(repository).findAllSortByZIndexGreaterThanOrEqualTo(eq(1L));
 
         WidgetDto saved = service.save(fromEntity(test));
 
@@ -243,7 +245,7 @@ public class ConcurrentWidgetServiceTest {
 
         verify(repository, times(1)).remove(any(Widget.class));
         verify(repository, times(1)).saveOrUpdate(any(Widget.class));
-        verify(repository, times(1)).saveOrUpdate(anyCollection());
+        verify(repository, never()).saveOrUpdate(anyCollection());
 
         Assert.assertNotNull(testable);
         assertEquals(test.getId(), testable.getId());
@@ -284,19 +286,12 @@ public class ConcurrentWidgetServiceTest {
         return new PageableDto(-1, -1);
     }
 
-    private static NavigableMap<Long, Widget> createWidgetByZIndexMap(Widget... widgets) {
-        NavigableMap<Long, Widget> map = new TreeMap<>();
-        Arrays.asList(widgets)
-                .forEach(widget -> map.put(widget.getZIndex(), widget));
-        return map;
-    }
-
     private static Set<Widget> createTwoWidgets() {
         return Stream
                 .iterate(0L, i -> i + 1)
                 .map(ConcurrentWidgetServiceTest::createWidget)
                 .limit(2)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
+                .collect(toCollection(LinkedHashSet::new));
     }
 
     private static Widget createWidget(Long zIndex) {

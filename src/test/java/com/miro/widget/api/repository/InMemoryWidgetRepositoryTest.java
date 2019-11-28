@@ -132,8 +132,8 @@ public class InMemoryWidgetRepositoryTest {
         repository.saveOrUpdate(test);
 
         NavigableSet<Widget> testable = repository.findAllSortByZIndexGreaterThanOrEqualTo(2);
-        List<Widget> target = test.stream().skip(2).limit(2).collect(Collectors.toList());
-        assertEquals(createWidgetByZIndexMap(target), testable);
+        Set<Widget> target = test.stream().skip(2).limit(2).collect(Collectors.toCollection(LinkedHashSet::new));
+        assertEquals(target, testable);
     }
 
     @Test
@@ -156,12 +156,6 @@ public class InMemoryWidgetRepositoryTest {
         assertEquals(test.getWidth(), removed.getWidth());
         assertEquals(test.getHeight(), removed.getHeight());
         assertEquals(test.getModifiedAt(), removed.getModifiedAt());
-    }
-
-    private static NavigableMap<Long, Widget> createWidgetByZIndexMap(Collection<Widget> widgets) {
-        NavigableMap<Long, Widget> map = new TreeMap<>();
-        widgets.forEach(widget -> map.put(widget.getZIndex(), widget));
-        return map;
     }
 
     private static Set<Widget> createWidgets(int limit) {

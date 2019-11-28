@@ -21,18 +21,18 @@ import static java.util.stream.Collectors.toList;
 public class ConcurrentWidgetService implements WidgetService {
     @NonNull
     private final WidgetRepository repository;
-    private final StampedLock sl = new StampedLock();
+    private final StampedLock lock = new StampedLock();
 
     @Override
     public WidgetDto findById(UUID uuid) {
-        long stamp = sl.readLock();
+        long stamp = lock.readLock();
         try {
             Widget widget = repository.findById(uuid);
             return widget != null
                     ? convertFromEntity(widget)
                     : null;
         } finally {
-            sl.unlockRead(stamp);
+            lock.unlockRead(stamp);
         }
     }
 
@@ -43,12 +43,12 @@ public class ConcurrentWidgetService implements WidgetService {
         Set<Widget> widgets;
         long itemsToSkip = (meta.getPage() - 1) * meta.getSize();
 
-        long stamp = sl.readLock();
+        long stamp = lock.readLock();
         try {
             count = repository.count();
             widgets = repository.findAllSortByZIndex(itemsToSkip,  meta.getSize());
         } finally {
-            sl.unlockRead(stamp);
+            lock.unlockRead(stamp);
         }
 
         if (count <= itemsToSkip) {
@@ -64,11 +64,11 @@ public class ConcurrentWidgetService implements WidgetService {
     @Override
     public List<WidgetDto> findAll() {
         Set<Widget> widgets;
-        long stamp = sl.readLock();
+        long stamp = lock.readLock();
         try {
             widgets = repository.findAllSortByZIndex();
         } finally {
-            sl.unlockRead(stamp);
+            lock.unlockRead(stamp);
         }
         return widgets.stream()
                 .map(ConcurrentWidgetService::convertFromEntity)
@@ -77,7 +77,7 @@ public class ConcurrentWidgetService implements WidgetService {
 
     @Override
     public WidgetDto save(WidgetDto dto) {
-        long stamp = sl.writeLock();
+        long stamp = lock.writeLock();
         try {
             if (dto.getZIndex() == null) {
                 Long highestZIndex = repository.findHighestZIndex();
@@ -97,7 +97,7 @@ public class ConcurrentWidgetService implements WidgetService {
 
             return dto;
         } finally {
-            sl.unlockWrite(stamp);
+            lock.unlockWrite(stamp);
         }
     }
 
@@ -105,7 +105,7 @@ public class ConcurrentWidgetService implements WidgetService {
     public WidgetDto update(UUID uuid, WidgetDto dto) {
         assertUpdatedWidgetIsValid(dto);
 
-        long stamp = sl.writeLock();
+        long stamp = lock.writeLock();
         try {
             Widget oldest = repository.findById(uuid);
             assertWidgetWasFound(uuid, oldest);
@@ -122,13 +122,13 @@ public class ConcurrentWidgetService implements WidgetService {
 
             return dto;
         } finally {
-            sl.unlockWrite(stamp);
+            lock.unlockWrite(stamp);
         }
     }
 
     @Override
     public WidgetDto delete(UUID uuid) {
-        long stamp = sl.writeLock();
+        long stamp = lock.writeLock();
         try {
             Widget oldest = repository.findById(uuid);
             assertWidgetWasFound(uuid, oldest);
@@ -136,17 +136,17 @@ public class ConcurrentWidgetService implements WidgetService {
             Widget removed = repository.remove(oldest);
             return convertFromEntity(removed);
         } finally {
-            sl.unlockWrite(stamp);
+            lock.unlockWrite(stamp);
         }
     }
 
     @Override
     public void deleteAll() {
-        long stamp = sl.writeLock();
+        long stamp = lock.writeLock();
         try {
             repository.removeAll();
         } finally {
-            sl.unlockWrite(stamp);
+            lock.unlockWrite(stamp);
         }
     }
 

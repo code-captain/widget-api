@@ -11,6 +11,8 @@ import java.util.stream.Collectors;
 
 @Component
 public class InMemoryWidgetRepository implements WidgetRepository {
+    private static final Comparator<Widget> DEFAULT_COMPARATOR = Comparator.comparing(Widget::getZIndex);
+
     private Map<UUID, Widget> widgetMapById = new HashMap<>();
     private NavigableMap<Long, Widget> widgetMapByZIndex = new TreeMap<>();
 
@@ -51,7 +53,8 @@ public class InMemoryWidgetRepository implements WidgetRepository {
 
     @Override
     public NavigableSet<Widget> findAllSortByZIndexGreaterThanOrEqualTo(long index) {
-        return new TreeSet<>(widgetMapByZIndex.tailMap(index, true).values());
+        return widgetMapByZIndex.tailMap(index, true).values().stream()
+                .collect(Collectors.toCollection(() -> new TreeSet<>(DEFAULT_COMPARATOR)));
     }
 
     @Override
