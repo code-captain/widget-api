@@ -14,6 +14,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -33,6 +34,7 @@ import static org.hamcrest.Matchers.is;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest
+@ActiveProfiles("test")
 @AutoConfigureMockMvc
 public class WidgetControllerTest {
 
@@ -119,7 +121,6 @@ public class WidgetControllerTest {
         mockMvc.perform(put("/api/widgets/" + widgetDto.getId().toString())
                 .content(createInvalidJSONWidgetRequest())
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON))
-                .andDo(print())
                 .andExpect(status().is4xxClientError());
     }
 
@@ -152,7 +153,6 @@ public class WidgetControllerTest {
         doReturn(widgetDto).when(widgetService).delete(eq(widgetDto.getId()));
 
         mockMvc.perform(delete("/api/widgets/" + widgetDto.getId().toString()))
-                .andDo(print())
                 .andExpect(status().isOk());
 
         verify(widgetService, times(1)).delete(eq(widgetDto.getId()));

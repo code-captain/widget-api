@@ -80,7 +80,7 @@ public class WidgetController {
         return new ResponseEntity<>(result, HttpStatus.CREATED);
     }
 
-    @PutMapping(path = "/{id}")
+    @PutMapping(path = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Resource<WidgetResponse>> update(
             @PathVariable UUID id,
             @Valid @RequestBody WidgetRequest request
@@ -169,6 +169,15 @@ public class WidgetController {
     }
 
     private static WidgetDto fromRequest(WidgetRequest request) {
+/*        return new WidgetDto(
+                null,
+                request.xCoordinate,
+                request.yCoordinate,
+                request.zIndex,
+                request.width,
+                request.height,
+                null
+        );*/
         return new WidgetDto(
                 null,
                 request.getXCoordinate(),

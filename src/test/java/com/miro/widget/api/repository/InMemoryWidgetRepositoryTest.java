@@ -14,7 +14,6 @@ import java.util.stream.Stream;
 
 import static org.junit.Assert.*;
 
-
 public class InMemoryWidgetRepositoryTest {
     private WidgetRepository repository;
 
