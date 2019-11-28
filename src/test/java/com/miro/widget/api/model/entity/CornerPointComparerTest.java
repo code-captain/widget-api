@@ -3,14 +3,11 @@ package com.miro.widget.api.model.entity;
 import org.hamcrest.core.IsInstanceOf;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.jupiter.api.MethodOrderer;
-import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.rules.ExpectedException;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 
-@TestMethodOrder(MethodOrderer.Alphanumeric.class)
 public class CornerPointComparerTest {
 
     @Rule

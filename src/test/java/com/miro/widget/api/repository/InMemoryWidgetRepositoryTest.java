@@ -6,8 +6,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.jupiter.api.MethodOrderer;
-import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.rules.ExpectedException;
 
 import java.util.*;
@@ -16,7 +14,7 @@ import java.util.stream.Stream;
 
 import static org.junit.Assert.*;
 
-@TestMethodOrder(MethodOrderer.Alphanumeric.class)
+
 public class InMemoryWidgetRepositoryTest {
     private WidgetRepository repository;
 
