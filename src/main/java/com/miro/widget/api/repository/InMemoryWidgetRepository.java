@@ -9,7 +9,9 @@ import java.util.stream.Collectors;
 
 @Component
 public class InMemoryWidgetRepository implements WidgetRepository {
-    private static final Comparator<Widget> DEFAULT_COMPARATOR = Comparator.comparing(Widget::getZIndex);
+    private static final Comparator<Widget> DEFAULT_COMPARATOR =
+            Comparator.comparing(Widget::getZIndex)
+                .thenComparing(Widget::getId);
 
     private Map<UUID, Widget> widgetMapById = new HashMap<>();
     private NavigableMap<Long, Widget> widgetMapByZIndex = new TreeMap<>();
