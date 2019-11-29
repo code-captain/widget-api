@@ -64,7 +64,7 @@ public class WidgetPagedResources extends PagedResources<WidgetResponse> {
         return new WidgetLink(prevLink);
     }
 
-    public static Link prevLinkWithParam(Link self, Page page) {
+    private static Link prevLinkWithParam(Link self, Page page) {
         UriComponents prevUri = UriComponentsBuilder
                 .fromHttpUrl(self.getHref())
                 .queryParam("page", page.getNumber() - 1)
@@ -79,7 +79,7 @@ public class WidgetPagedResources extends PagedResources<WidgetResponse> {
         return new WidgetLink(prevLink);
     }
 
-    public static Link nextLinkWithParam(Link self, Page page) {
+    private static Link nextLinkWithParam(Link self, Page page) {
         UriComponents prevUri = UriComponentsBuilder
                 .fromHttpUrl(self.getHref())
                 .queryParam("page", page.getNumber() + 1)
