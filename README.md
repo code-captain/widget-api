@@ -13,51 +13,62 @@
 
 `GET /api/widgets?
 [page=<номер страницы ответа>]
-[size=<количество виджетов на каждой странице ответа>]`
+[size=<количество виджетов на каждой странице ответа>]
+[bottomLeftX=<x-координата левой нижней точки прямоугольной области фильтрации>]
+[bottomLeftY=<y-координата левой нижней точки прямоугольной области фильтрации>]
+[upperRightX=<x-координата правой верхней точки прямоугольной области фильтрации>]
+[upperRightY=<y-координата правой верхней точки прямоугольной области фильтрации>]`
 
 Параметры:
-1) `page`	- Номер страницы ответа. Тип `int`. Значение по умолчанию — 1.
+1) `page` - Номер страницы ответа. Тип `int`. Значение по умолчанию — 1. Опциональный параметр
 
-2) `size` -	Количество виджетов на каждой странице ответа. Тип `int`. Допустимые значения: от 1 до 500. Значение по умолчанию — 10.
+2) `size` - Количество виджетов на каждой странице ответа. Тип `int`. Допустимые значения: от 1 до 500. Значение по умолчанию — 10. Опциональный параметр.
+
+3) `bottomLeftX, bottomLeftY` - Координаты левой нижней точки прямоугольной области фильтрации. Опциональные параметры, однако обязательны в случае указания параметров из пункта 4
+
+3) `upperRightX, upperRightY` - Координаты правой верхней точки прямоугольной области фильтрации. Опциональные параметры, однако обязательны в случае указания параметров из пункта 3
 
 #### Пример запроса:
-`curl -X GET 'http://localhost:8080/api/widgets?page=1&size=1' `
+`curl -X GET 'http://localhost:8080/api/widgets?page=1&bottomLeftX=0&bottomLeftY=0&upperRightX=300&upperRightY=200' `
 
 #### Пример ответа:
 ```{
     "links": [
         {
             "rel": "self",
-            "href": "http://localhost:8080/api/widgets?page=1&page=1",
+            "href": "http://localhost:8080/api/widgets?page=1&size=10",
             "type": "GET"
         },
         {
-            "rel": "create",
+            "rel": "create-widget",
             "href": "http://localhost:8080/api/widgets",
             "type": "POST"
         }
     ],
     "content": [
         {
+            "xcoordinate": 60,
+            "ycoordinate": 60,
+            "zindex": 16,
             "links": [
                 {
                     "rel": "self",
-                    "href": "http://localhost:8080/api/widgets/392e5e86-1862-40dc-9362-7517c5a35599",
+                    "href": "http://localhost:8080/api/widgets/723150e1-6b39-47cb-8277-04fca5f7d95f",
                     "type": "GET"
                 }
             ],
-            "id": "392e5e86-1862-40dc-9362-7517c5a35599",
-            "xСoordinate": 15,
-            "yСoordinate": 25,
-            "zIndex": 0,
-            "width": 100,
-            "height": 100,
-            "modifiedAt": "2019-11-25 06:49:34"
+            "id": "723150e1-6b39-47cb-8277-04fca5f7d95f",
+            "xСoordinate": 60,
+            "yСoordinate": 60,
+            "zIndex": 16,
+            "width": 110,
+            "height": 110,
+            "modifiedAt": "2019-11-29 05:24:47"
         }
     ],
     "page": {
         "size": 1,
-        "totalElements": 1,
+        "totalElements": 9,
         "totalPages": 1,
         "number": 1
     }
