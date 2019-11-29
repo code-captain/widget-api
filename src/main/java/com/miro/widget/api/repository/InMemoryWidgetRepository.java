@@ -17,7 +17,8 @@ public class InMemoryWidgetRepository implements WidgetRepository {
 
     private Map<UUID, Widget> widgetMapById = new HashMap<>();
     private NavigableMap<Long, Widget> widgetMapByZIndex = new TreeMap<>();
-    private NavigableMap<Long, Set<Widget>> widgetMapByBottomLeftXCoordinate = new TreeMap<>();
+    //private NavigableMap<Long, Set<Widget>> widgetMapByBottomLeftXCoordinate = new TreeMap<>();
+    private NavigableMap<Long, NavigableMap<Long, NavigableMap<Long, NavigableMap<Long, Set<Widget>>>>> widgetMapByCoordinates = new TreeMap<>();
 
     @Override
     public long count() {
@@ -57,12 +58,34 @@ public class InMemoryWidgetRepository implements WidgetRepository {
     @Override
     public Set<Widget> findAllInAreaSortByZIndex(Point bottomLeft, Point upperRight, long skip, long take) {
         Rectangle filterRectangle = new Rectangle(bottomLeft, upperRight);
-        return widgetMapByBottomLeftXCoordinate.subMap(bottomLeft.getXCoordinate(), upperRight.getXCoordinate()).entrySet().stream()
-                .flatMap(entry -> entry.getValue().stream())
-                .filter(filterRectangle::contains)
+        Set<Widget> filteredWidgets = searchByRectangleMap(filterRectangle);
+        return filteredWidgets.stream()
                 .skip(skip)
                 .limit(take)
                 .collect(Collectors.toCollection(() -> new TreeSet<>(DEFAULT_COMPARATOR)));
+    }
+
+    private Set<Widget> searchByRectangleMap(Rectangle rectangleFilter) {
+        TreeSet<Widget> result = new TreeSet<>(DEFAULT_COMPARATOR);
+        widgetMapByCoordinates.subMap(
+                rectangleFilter.getBottomLeftPoint().getXCoordinate(), true,
+                rectangleFilter.getUpperRightPoint().getXCoordinate(), true
+        ).forEach((bottomXCoordinate, widgetMultiMapByBottomYCoordinate) -> {
+            widgetMultiMapByBottomYCoordinate.subMap(
+                    rectangleFilter.getBottomLeftPoint().getYCoordinate(), true,
+                    rectangleFilter.getUpperRightPoint().getYCoordinate(), true
+            ).forEach((bottomYCoordinate, widgetMultiMapByUpperXCoordinate) ->
+                    widgetMultiMapByUpperXCoordinate.subMap(
+                            rectangleFilter.getBottomLeftPoint().getXCoordinate(), true,
+                            rectangleFilter.getUpperRightPoint().getXCoordinate(), true
+                    ).forEach((upperXCoordinate, widgetMultiMapByUpperYCoordinate) -> {
+                        widgetMultiMapByUpperYCoordinate.subMap(
+                                rectangleFilter.getBottomLeftPoint().getYCoordinate(), true,
+                                rectangleFilter.getUpperRightPoint().getYCoordinate(), true
+                        ).forEach((k , v) -> result.addAll(v));
+                    }));
+        });
+        return result;
     }
 
     @Override
@@ -76,10 +99,33 @@ public class InMemoryWidgetRepository implements WidgetRepository {
         Widget removed = widgetMapById.put(widget.getId(), widget);
         widgetMapByZIndex.put(widget.getZIndex(), widget);
         if (removed != null) {
-            removeInMapByBottomLeftXCoordinate(removed);
+            removeInRectangleMap(removed);
         }
-        widgetMapByBottomLeftXCoordinate.putIfAbsent(widget.getBottomLeftPoint().getXCoordinate(), new TreeSet<>(DEFAULT_COMPARATOR));
-        widgetMapByBottomLeftXCoordinate.get(widget.getBottomLeftPoint().getXCoordinate()).add(widget);
+        addToRectangleMap(widget);
+    }
+
+    private void addToRectangleMap(Widget widget) {
+        widgetMapByCoordinates
+                .putIfAbsent(widget.getBottomLeftPoint().getXCoordinate(), new TreeMap<>());
+        widgetMapByCoordinates
+                .get(widget.getBottomLeftPoint().getXCoordinate())
+                .putIfAbsent(widget.getBottomLeftPoint().getYCoordinate(), new TreeMap<>());
+        widgetMapByCoordinates
+                .get(widget.getBottomLeftPoint().getXCoordinate())
+                .get(widget.getBottomLeftPoint().getYCoordinate())
+                .putIfAbsent(widget.getUpperRightPoint().getXCoordinate(), new TreeMap<>());
+        widgetMapByCoordinates
+                .get(widget.getBottomLeftPoint().getXCoordinate())
+                .get(widget.getBottomLeftPoint().getYCoordinate())
+                .get(widget.getUpperRightPoint().getXCoordinate())
+                .putIfAbsent(widget.getUpperRightPoint().getYCoordinate(), new TreeSet<>(DEFAULT_COMPARATOR));
+
+        widgetMapByCoordinates
+                .get(widget.getBottomLeftPoint().getXCoordinate())
+                .get(widget.getBottomLeftPoint().getYCoordinate())
+                .get(widget.getUpperRightPoint().getXCoordinate())
+                .get(widget.getUpperRightPoint().getYCoordinate())
+                .add(widget);
     }
 
     @Override
@@ -92,22 +138,24 @@ public class InMemoryWidgetRepository implements WidgetRepository {
         Widget removed = widgetMapById.remove(widget.getId());
         widgetMapByZIndex.remove(widget.getZIndex());
         if (removed != null) {
-            removeInMapByBottomLeftXCoordinate(removed);
+            removeInRectangleMap(removed);
         }
         return removed;
     }
 
-    private void removeInMapByBottomLeftXCoordinate(Widget widget) {
-        Set<Widget> widgets = widgetMapByBottomLeftXCoordinate.get(widget.getBottomLeftPoint().getXCoordinate());
-        if (widgets != null) {
-            widgets.remove(widget);
-        }
+    private void removeInRectangleMap(Widget widget) {
+        widgetMapByCoordinates
+                .getOrDefault(widget.getBottomLeftPoint().getXCoordinate(), new TreeMap<>())
+                .getOrDefault(widget.getBottomLeftPoint().getYCoordinate(), new TreeMap<>())
+                .getOrDefault(widget.getUpperRightPoint().getXCoordinate(), new TreeMap<>())
+                .getOrDefault(widget.getUpperRightPoint().getYCoordinate(), new TreeSet<>(DEFAULT_COMPARATOR))
+                .remove(widget);
     }
 
     @Override
     public void removeAll() {
         widgetMapById.clear();
         widgetMapByZIndex.clear();
-        widgetMapByBottomLeftXCoordinate.clear();
+        widgetMapByCoordinates.clear();
     }
 }
