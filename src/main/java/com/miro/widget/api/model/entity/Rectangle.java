@@ -64,51 +64,6 @@ public class Rectangle {
         this.yCoordinate = bottomLeftPoint.getYCoordinate() + height / 2;
     }
 
-    public boolean contains(Rectangle other) {
-        long width = this.width;
-        long height = this.height;
-        if ((width | height | other.width | other.height) < 0) {
-            // at least one of the dimensions is negative
-            return false;
-        }
-        // if any dimension is zero, tests below must return false
-        if (this.bottomLeftPoint.getXCoordinate() > other.bottomLeftPoint.getXCoordinate()
-            || this.bottomLeftPoint.getYCoordinate() > other.bottomLeftPoint.getYCoordinate()
-        ) {
-            return false;
-        }
-
-        if (other.upperRightPoint.getXCoordinate() <= other.bottomLeftPoint.getXCoordinate()) {
-
-            if (this.upperRightPoint.getXCoordinate() > this.bottomLeftPoint.getXCoordinate()
-                    || other.upperRightPoint.getXCoordinate() > this.upperRightPoint.getXCoordinate()
-            ) {
-                return false;
-            }
-        } else {
-
-            if (this.upperRightPoint.getXCoordinate() > this.bottomLeftPoint.getXCoordinate()
-                    && other.upperRightPoint.getXCoordinate() > this.upperRightPoint.getXCoordinate()
-            ) {
-                return false;
-            }
-        }
-        if (other.upperRightPoint.getYCoordinate() <= other.bottomLeftPoint.getYCoordinate()) {
-            if (this.upperRightPoint.getYCoordinate() > this.bottomLeftPoint.getYCoordinate()
-                    || other.upperRightPoint.getYCoordinate() > this.upperRightPoint.getYCoordinate()
-            ) {
-                return false;
-            }
-        } else {
-            if (this.upperRightPoint.getYCoordinate() > this.bottomLeftPoint.getYCoordinate()
-                    && other.upperRightPoint.getYCoordinate() > this.upperRightPoint.getYCoordinate()
-            ) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     private static long calculateBottomLeftCoordinate(long centerCoordinate, long side) {
         return centerCoordinate - side / 2;
     }

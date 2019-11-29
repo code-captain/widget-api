@@ -13,7 +13,6 @@ import java.util.Collections;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Page<T> {
-
     @NonNull
     private Collection<T> items = Collections.emptyList();
 

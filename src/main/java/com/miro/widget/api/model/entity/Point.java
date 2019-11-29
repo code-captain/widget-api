@@ -9,7 +9,6 @@ import lombok.RequiredArgsConstructor;
 @EqualsAndHashCode
 @RequiredArgsConstructor
 public class Point {
-
     @NonNull
     private final long xCoordinate;
 

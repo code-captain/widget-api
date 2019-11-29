@@ -176,6 +176,32 @@ public class InMemoryWidgetRepositoryTest {
         assertEquals(test.getModifiedAt(), removed.getModifiedAt());
     }
 
+    @Test
+    public void findAllInAreaSortByZIndex_WhenParamInvokeWidgetReflexivity_ReturnExpectedWidget() {
+        Widget widget1 = new Widget(UUID.randomUUID(), 150, 100, 1L, 300, 200);
+        Widget widget2 = new Widget(UUID.randomUUID(), 150, 100, 1L, 300, 200);
+        repository.saveOrUpdate(Collections.singleton(widget1));
+
+        Set<Widget> widgets = repository.findAllInAreaSortByZIndex(widget2.getBottomLeftPoint(), widget2.getUpperRightPoint(), 0, 2);
+        Assert.assertTrue(widgets.contains(widget1));
+    }
+
+    @Test
+    public void findAllInAreaSortByZIndex_WhenAreaContainsTwoWidgets_ReturnExpectedWidgets() {
+        Widget widget1 = new Widget(UUID.randomUUID(), 150, 100, 1L, 300, 200);
+        Widget widget2 = new Widget(UUID.randomUUID(), 50, 50, 2L, 100, 100);
+        Widget widget3 = new Widget(UUID.randomUUID(), 250, 150, 3L, 100, 100);
+        repository.saveOrUpdate(Arrays.asList(widget2, widget3));
+
+        Set<Widget> widgets = repository.findAllInAreaSortByZIndex(widget1.getBottomLeftPoint(), widget1.getUpperRightPoint(), 0, 2);
+        Assert.assertTrue(widgets.contains(widget2));
+        Assert.assertTrue(widgets.contains(widget3));
+
+        widgets = repository.findAllInAreaSortByZIndex(widget2.getBottomLeftPoint(), widget2.getUpperRightPoint(), 0, 2);
+        Assert.assertFalse(widgets.contains(widget1));
+        Assert.assertFalse(widgets.contains(widget3));
+    }
+
     private static Point createFilterBottomLeftPoint() {
         return new Point(0, 0);
     }

@@ -13,7 +13,6 @@ import javax.validation.constraints.Min;
 @NoArgsConstructor
 @AllArgsConstructor
 public class WidgetRequest {
-
     @JsonProperty(value = "xCoordinate")
     private long xCoordinate;
 

@@ -14,7 +14,6 @@ import javax.validation.constraints.Min;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Pageable {
-
     @Min(value = 1, message = "Field `page` must be greater than 0")
     @JsonProperty(value = "page")
     private long page = 1;

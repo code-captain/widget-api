@@ -7,7 +7,6 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum WidgetLinkRelType {
-
     WIDGET("widget"),
 
     WIDGETS("widgets"),

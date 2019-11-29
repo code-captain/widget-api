@@ -10,7 +10,6 @@ import org.springframework.http.HttpMethod;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Getter
 public class WidgetLink extends Link {
-
     @JsonProperty
     private String type;
 

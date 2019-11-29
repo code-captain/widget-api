@@ -8,7 +8,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Filter {
-
     @JsonProperty(value = "bottomLeftX")
     private Long bottomLeftX;
 
