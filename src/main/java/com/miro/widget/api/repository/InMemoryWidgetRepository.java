@@ -17,7 +17,6 @@ public class InMemoryWidgetRepository implements WidgetRepository {
 
     private Map<UUID, Widget> widgetMapById = new HashMap<>();
     private NavigableMap<Long, Widget> widgetMapByZIndex = new TreeMap<>();
-    //private NavigableMap<Long, Set<Widget>> widgetMapByBottomLeftXCoordinate = new TreeMap<>();
     private NavigableMap<Long, NavigableMap<Long, NavigableMap<Long, NavigableMap<Long, Set<Widget>>>>> widgetMapByCoordinates = new TreeMap<>();
 
     @Override
