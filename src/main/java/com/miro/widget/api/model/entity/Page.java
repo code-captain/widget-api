@@ -43,4 +43,8 @@ public class Page<T> {
     public static <T> Page<T> createPage(Collection<T> items, PageableDto meta, long totalItemsCount) {
         return new Page<T>(items, meta.getPage(), meta.getSize(), totalItemsCount);
     }
+
+    public static <T> Page<T> createPageBy(Page other, Collection<T> items) {
+        return new Page<T>(items, other.number, other.size, other.totalItems);
+    }
 }

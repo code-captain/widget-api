@@ -12,11 +12,11 @@ public enum WidgetLinkRelType {
 
     WIDGETS("widgets"),
 
-    CREATE("create"),
+    CREATE_WIDGET("create-widget"),
 
-    UPDATE("update"),
+    UPDATE_WIDGET("update-widget"),
 
-    DELETE("remove");
+    DELETE_WIDGET("delete-widget");
 
     @NonNull
     private final String title;

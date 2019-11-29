@@ -1,31 +1,34 @@
 package com.miro.widget.api.model.entity;
 
-import lombok.*;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.ToString;
 
+import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
 
 @Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@EqualsAndHashCode
+@EqualsAndHashCode(callSuper = true)
 @ToString(onlyExplicitlyIncluded = true)
-public class Widget {
+public class Widget extends Rectangle {
     @ToString.Include
     private UUID id;
 
-    @ToString.Include
-    private long xCoordinate;
-
-    private long yCoordinate;
-
-    @ToString.Include
     private Long zIndex;
 
-    private long width;
-
-    private long height;
-
     private Date modifiedAt;
+
+    public Widget(UUID id, long xCoordinate, long yCoordinate, Long zIndex, long width, long height) {
+        super(xCoordinate, yCoordinate, width, height);
+
+        this.id = id;
+        this.zIndex = zIndex;
+        this.modifiedAt = Date.from(Instant.now());
+    }
+
+    public void incrementZIndex() {
+        this.zIndex++;
+        this.modifiedAt = Date.from(Instant.now());
+    }
 }

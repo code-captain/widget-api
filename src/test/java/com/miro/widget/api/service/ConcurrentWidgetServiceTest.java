@@ -4,28 +4,27 @@ import com.miro.widget.api.contract.WidgetRepository;
 import com.miro.widget.api.contract.WidgetService;
 import com.miro.widget.api.model.dto.PageableDto;
 import com.miro.widget.api.model.dto.WidgetDto;
+import com.miro.widget.api.model.entity.Filter;
 import com.miro.widget.api.model.entity.Page;
+import com.miro.widget.api.model.entity.Point;
 import com.miro.widget.api.model.entity.Widget;
 import org.hamcrest.core.IsInstanceOf;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.jupiter.api.MethodOrderer;
-import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.rules.ExpectedException;
 
-import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptySet;
+import static java.util.stream.Collectors.toCollection;
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-@TestMethodOrder(MethodOrderer.Alphanumeric.class)
 public class ConcurrentWidgetServiceTest {
     private WidgetRepository repository;
     private WidgetService service;
@@ -66,7 +65,13 @@ public class ConcurrentWidgetServiceTest {
     @Test
     public void findPage_WhenParamPageableIsInvalid_ThrowIllegalArgumentException() {
         expectedException.expect(IsInstanceOf.instanceOf(IllegalArgumentException.class));
-        service.findPage(createInvalidPageableDto());
+        service.findPage(createInvalidPageableDto(), createFilter());
+    }
+
+    @Test
+    public void findPage_WhenParamFilterIsInvalid_ThrowIllegalArgumentException() {
+        expectedException.expect(IsInstanceOf.instanceOf(IllegalArgumentException.class));
+        service.findPage(createPageableDto(), createInvalidFilter());
     }
 
     @Test
@@ -74,7 +79,7 @@ public class ConcurrentWidgetServiceTest {
         doReturn(0L).when(repository).count();
 
         PageableDto pageableDto = createPageableDto();
-        Page<WidgetDto> page = service.findPage(pageableDto);
+        Page<WidgetDto> page = service.findPage(pageableDto, createFilter());
 
         assertEquals(Collections.emptyList(), page.getItems());
         assertEquals(pageableDto.getPage(), page.getNumber());
@@ -87,10 +92,10 @@ public class ConcurrentWidgetServiceTest {
         doReturn(2L).when(repository).count();
 
         Set<Widget> widgets = createTwoWidgets();
-        doReturn(widgets).when(repository).findAllSortByZIndex(anyLong(), anyLong());
+        doReturn(widgets).when(repository).findAllInAreaSortByZIndex(any(Point.class), any(Point.class), anyLong(), anyLong());
 
         PageableDto pageableDto = createPageableDto();
-        Page<WidgetDto> page = service.findPage(pageableDto);
+        Page<WidgetDto> page = service.findPage(pageableDto, createFilter());
 
         assertEquals(widgets.size(), page.getItems().size());
         Iterator<Widget> testIterator = widgets.iterator();
@@ -152,12 +157,13 @@ public class ConcurrentWidgetServiceTest {
 
     @Test
     public void save_WhenWidgetsAreNotExistsAndZIndexIsNull_ReturnSavedWidgetWithZeroZIndex() {
-        doReturn(0L).when(repository).count();
+        doReturn(null).when(repository).findHighestZIndex();
+        doReturn(null).when(repository).findLeastZIndexGreaterThanOrEqualTo(anyLong());
         Widget test = createWidget(null);
         WidgetDto saved = service.save(fromEntity(test));
 
         verify(repository, times(1)).saveOrUpdate(any(Widget.class));
-        verify(repository, times(1)).saveOrUpdate(anyCollection());
+        verify(repository, never()).saveOrUpdate(anyCollection());
 
         Assert.assertNotNull(saved);
         assertNotEquals(test.getId(), saved.getId());
@@ -172,13 +178,12 @@ public class ConcurrentWidgetServiceTest {
     public void save_WhenWidgetsAreExistsAndZIndexIsNull_ReturnSavedWidgetWithHighestZIndex() {
         doReturn(1L).when(repository).count();
         doReturn(1L).when(repository).findHighestZIndex();
-        //doReturn(null).when(repository).findLeastZIndexGreaterThanOrEqualTo(eq(1L));
 
         Widget test = createWidget(null);
         WidgetDto saved = service.save(fromEntity(test));
 
         verify(repository, times(1)).saveOrUpdate(any(Widget.class));
-        verify(repository, times(1)).saveOrUpdate(anyCollection());
+        verify(repository, never()).saveOrUpdate(anyCollection());
 
         Assert.assertNotNull(saved);
         assertNotEquals(test.getId(), saved.getId());
@@ -196,7 +201,8 @@ public class ConcurrentWidgetServiceTest {
         doReturn(1L).when(repository).findLeastZIndexGreaterThanOrEqualTo(eq(1L));
 
         Widget test = createWidget(1L);
-        doReturn(createWidgetByZIndexMap(test)).when(repository).findAllWithZIndexGreaterThanOrEqualTo(eq(1L));
+        doReturn(Stream.of(test).collect(Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(Widget::getZIndex)))))
+                .when(repository).findAllSortByZIndexGreaterThanOrEqualTo(eq(1L));
 
         WidgetDto saved = service.save(fromEntity(test));
 
@@ -237,14 +243,14 @@ public class ConcurrentWidgetServiceTest {
         Widget test = createWidget(2L);
         doReturn(test).when(repository).findById(eq(test.getId()));
 
-        Widget updated = createWidget(5L);
+        WidgetDto updated = fromEntity(createWidget(5L));
         updated.setXCoordinate(110);
         updated.setYCoordinate(120);
-        WidgetDto testable = service.update(test.getId(), fromEntity(updated));
+        WidgetDto testable = service.update(test.getId(), updated);
 
         verify(repository, times(1)).remove(any(Widget.class));
         verify(repository, times(1)).saveOrUpdate(any(Widget.class));
-        verify(repository, times(1)).saveOrUpdate(anyCollection());
+        verify(repository, never()).saveOrUpdate(anyCollection());
 
         Assert.assertNotNull(testable);
         assertEquals(test.getId(), testable.getId());
@@ -281,15 +287,16 @@ public class ConcurrentWidgetServiceTest {
         return new PageableDto(1, 10);
     }
 
+    private static Filter createFilter() {
+        return new Filter(0L, 0L, 300L, 200L);
+    }
+
     private static PageableDto createInvalidPageableDto() {
         return new PageableDto(-1, -1);
     }
 
-    private static NavigableMap<Long, Widget> createWidgetByZIndexMap(Widget... widgets) {
-        NavigableMap<Long, Widget> map = new TreeMap<>();
-        Arrays.asList(widgets)
-                .forEach(widget -> map.put(widget.getZIndex(), widget));
-        return map;
+    private static Filter createInvalidFilter() {
+        return new Filter(300L, 200L, 200L, 100L);
     }
 
     private static Set<Widget> createTwoWidgets() {
@@ -297,30 +304,28 @@ public class ConcurrentWidgetServiceTest {
                 .iterate(0L, i -> i + 1)
                 .map(ConcurrentWidgetServiceTest::createWidget)
                 .limit(2)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
+                .collect(toCollection(() -> new TreeSet<>(Comparator.comparing(Widget::getZIndex))));
     }
 
     private static Widget createWidget(Long zIndex) {
         return new Widget(
                 UUID.randomUUID(),
-                40,
+                50,
                 50,
                 zIndex,
                 100,
-                50,
-                Date.from(Instant.now())
+                100
         );
     }
 
     private static Widget createWidget() {
         return new Widget(
                 UUID.randomUUID(),
-                40,
+                50,
                 50,
                 5L,
                 100,
-                50,
-                Date.from(Instant.now())
+                100
         );
     }
 

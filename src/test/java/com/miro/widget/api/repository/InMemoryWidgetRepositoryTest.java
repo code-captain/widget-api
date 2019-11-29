@@ -1,23 +1,20 @@
 package com.miro.widget.api.repository;
 
 import com.miro.widget.api.contract.WidgetRepository;
+import com.miro.widget.api.model.entity.Point;
 import com.miro.widget.api.model.entity.Widget;
-import org.hamcrest.core.IsInstanceOf;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.jupiter.api.MethodOrderer;
-import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.rules.ExpectedException;
 
-import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.junit.Assert.*;
 
-@TestMethodOrder(MethodOrderer.Alphanumeric.class)
 public class InMemoryWidgetRepositoryTest {
     private WidgetRepository repository;
 
@@ -47,9 +44,9 @@ public class InMemoryWidgetRepositoryTest {
     }
 
     @Test
-    public void findHighestZIndex_WhenWidgetsWereNotSaved_ThrowNoSuchElementException() {
-        expectedException.expect(IsInstanceOf.instanceOf(NoSuchElementException.class));
-        repository.findHighestZIndex();
+    public void findHighestZIndex_WhenWidgetsWereNotSaved_ReturnNull() {
+        Long highestZIndex = repository.findHighestZIndex();
+        Assert.assertNull(highestZIndex);
     }
 
     @Test
@@ -123,8 +120,28 @@ public class InMemoryWidgetRepositoryTest {
     }
 
     @Test
+    public void findAllInAreaSortByZIndex_WithRangeParamsWhenWidgetsWereSaved_ReturnSortedWidgetsInArea() {
+        Set<Widget> test = createWidgets(4);
+        repository.saveOrUpdate(test);
+
+        Set<Widget> testable = repository.findAllInAreaSortByZIndex(createFilterBottomLeftPoint(), createFilterUpperRightPoint(), 2, 2);
+        assertEquals(test.stream().skip(2).limit(2).collect(Collectors.toSet()), testable);
+    }
+
+    @Test
+    public void findAllInAreaSortByZIndex_WhenOnlyOneWidgetIsNotMatch_ReturnWidgetInArea() {
+        Set<Widget> test = createWidgets(4);
+        Widget widget = createWidget(300, 200);
+        repository.saveOrUpdate(widget);
+        repository.saveOrUpdate(test);
+
+        Set<Widget> testable = repository.findAllInAreaSortByZIndex(createFilterBottomLeftPoint(), createFilterUpperRightPoint(), 0, 5);
+        assertEquals(test, testable);
+    }
+
+    @Test
     public void findAllWithZIndexGreaterThanOrEqualTo_WhenWidgetsWereNotSaved_ReturnEmptyNavigableMap() {
-        assertEquals(Collections.emptyNavigableMap(), repository.findAllWithZIndexGreaterThanOrEqualTo(1));
+        assertEquals(Collections.emptyNavigableSet(), repository.findAllSortByZIndexGreaterThanOrEqualTo(1));
     }
 
     @Test
@@ -132,9 +149,9 @@ public class InMemoryWidgetRepositoryTest {
         Set<Widget> test = createWidgets(4);
         repository.saveOrUpdate(test);
 
-        NavigableMap<Long, Widget> testable = repository.findAllWithZIndexGreaterThanOrEqualTo(2);
-        List<Widget> target = test.stream().skip(2).limit(2).collect(Collectors.toList());
-        assertEquals(createWidgetByZIndexMap(target), testable);
+        NavigableSet<Widget> testable = repository.findAllSortByZIndexGreaterThanOrEqualTo(2);
+        Set<Widget> target = test.stream().skip(2).limit(2).collect(Collectors.toCollection(LinkedHashSet::new));
+        assertEquals(target, testable);
     }
 
     @Test
@@ -159,10 +176,12 @@ public class InMemoryWidgetRepositoryTest {
         assertEquals(test.getModifiedAt(), removed.getModifiedAt());
     }
 
-    private static NavigableMap<Long, Widget> createWidgetByZIndexMap(Collection<Widget> widgets) {
-        NavigableMap<Long, Widget> map = new TreeMap<>();
-        widgets.forEach(widget -> map.put(widget.getZIndex(), widget));
-        return map;
+    private static Point createFilterBottomLeftPoint() {
+        return new Point(0, 0);
+    }
+
+    private static Point createFilterUpperRightPoint() {
+        return new Point(300, 200);
     }
 
     private static Set<Widget> createWidgets(int limit) {
@@ -173,15 +192,25 @@ public class InMemoryWidgetRepositoryTest {
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
+    private static Widget createWidget(long xCoordinate, long yCoordinate) {
+        return new Widget(
+                UUID.randomUUID(),
+                xCoordinate,
+                yCoordinate,
+                5L,
+                100,
+                100
+        );
+    }
+
     private static Widget createWidget(Long zIndex) {
         return new Widget(
                 UUID.randomUUID(),
-                40,
+                50,
                 50,
                 zIndex,
                 100,
-                50,
-                Date.from(Instant.now())
+                100
         );
     }
 }
