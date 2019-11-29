@@ -1,5 +1,6 @@
 package com.miro.widget.api.contract;
 
+import com.miro.widget.api.model.entity.Point;
 import com.miro.widget.api.model.entity.Widget;
 
 import java.util.*;
@@ -16,6 +17,8 @@ public interface WidgetRepository {
     Set<Widget> findAllSortByZIndex();
 
     Set<Widget> findAllSortByZIndex(long skip, long take);
+
+    Set<Widget> findAllInAreaSortByZIndex(Point bottomLeft, Point upperRight, long skip, long take);
 
     NavigableSet<Widget> findAllSortByZIndexGreaterThanOrEqualTo(long index);
 

@@ -49,7 +49,7 @@ public class WidgetControllerTest {
     @Test
     public void getAll() throws Exception {
         Page<WidgetDto> page = createPage();
-        doReturn(page).when(widgetService).findPage(any());
+        doReturn(page).when(widgetService).findPage(any(), any());
 
         WidgetDto widget = page.getItems().iterator().next();
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");

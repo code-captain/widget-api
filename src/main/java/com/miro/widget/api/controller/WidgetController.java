@@ -3,6 +3,7 @@ package com.miro.widget.api.controller;
 import com.miro.widget.api.contract.WidgetService;
 import com.miro.widget.api.model.dto.PageableDto;
 import com.miro.widget.api.model.dto.WidgetDto;
+import com.miro.widget.api.model.entity.Filter;
 import com.miro.widget.api.model.entity.Page;
 import com.miro.widget.api.model.request.Pageable;
 import com.miro.widget.api.model.request.WidgetRequest;
@@ -29,9 +30,12 @@ public class WidgetController {
 
     @GetMapping
     public ResponseEntity<WidgetPagedResources> getAll(
-            @Valid Pageable pageable
+            @Valid Pageable pageable, @Valid Filter filter
     ) {
-        Page<WidgetDto> page = service.findPage(convertFromPageable(pageable));
+        assertPageableIsValid(pageable);
+        assertFilterIsValid(filter);
+
+        Page<WidgetDto> page = service.findPage(convertFromPageable(pageable), filter);
         Page<WidgetResponse> responsePage = Page.createPageBy(
                 page,
                 page.getItems().stream()
@@ -124,7 +128,7 @@ public class WidgetController {
     }
 
     private ControllerLinkBuilder linkToGetAll() {
-        return linkTo(methodOn(getClass()).getAll(null));
+        return linkTo(methodOn(getClass()).getAll(null, null));
     }
 
     private ControllerLinkBuilder linkToCreate() {
@@ -168,5 +172,32 @@ public class WidgetController {
                 pageable.getPage(),
                 pageable.getSize()
         );
+    }
+
+    private static void assertPageableIsValid(Pageable pageable) {
+        if (pageable == null) {
+            throw new NullPointerException("Param `pageableDto` must be not null");
+        }
+        if (pageable.getPage() <= 0) {
+            throw new IllegalArgumentException("Field `page` must be greater than 0");
+        }
+        if (pageable.getSize() <= 0) {
+            throw new IllegalArgumentException("Field `size` must be greater than 0");
+        }
+
+    }
+
+    private static void assertFilterIsValid(Filter filter) {
+        if (filter == null) {
+            throw new NullPointerException("Param `filter` must be not null");
+        }
+
+        if ((filter.getBottomLeftX() != null
+            || filter.getBottomLeftY() != null
+            || filter.getUpperRightX() != null
+            || filter.getUpperRightY() != null
+        ) && !filter.isFilled()) {
+            throw new IllegalArgumentException("All filter fields must be completed simultaneously");
+        }
     }
 }

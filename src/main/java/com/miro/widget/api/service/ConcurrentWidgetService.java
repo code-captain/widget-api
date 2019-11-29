@@ -4,7 +4,9 @@ import com.miro.widget.api.contract.WidgetRepository;
 import com.miro.widget.api.contract.WidgetService;
 import com.miro.widget.api.model.dto.PageableDto;
 import com.miro.widget.api.model.dto.WidgetDto;
+import com.miro.widget.api.model.entity.Filter;
 import com.miro.widget.api.model.entity.Page;
+import com.miro.widget.api.model.entity.Point;
 import com.miro.widget.api.model.entity.Widget;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -37,16 +39,23 @@ public class ConcurrentWidgetService implements WidgetService {
     }
 
     @Override
-    public Page<WidgetDto> findPage(PageableDto meta) {
+    public Page<WidgetDto> findPage(PageableDto meta, Filter filter) {
         assertPageableIsValid(meta);
+        assertFilterIsValid(filter);
+
         long count;
         Set<Widget> widgets;
         long itemsToSkip = (meta.getPage() - 1) * meta.getSize();
-
         long stamp = lock.readLock();
         try {
             count = repository.count();
-            widgets = repository.findAllSortByZIndex(itemsToSkip,  meta.getSize());
+            if (filter.isFilled()) {
+                Point bottomLeftPoint = new Point(filter.getBottomLeftX(), filter.getBottomLeftY());
+                Point upperRightPoint = new Point(filter.getUpperRightX(), filter.getUpperRightY());
+                widgets = repository.findAllInAreaSortByZIndex(bottomLeftPoint, upperRightPoint, itemsToSkip,  meta.getSize());
+            } else {
+                widgets = repository.findAllSortByZIndex(itemsToSkip,  meta.getSize());
+            }
         } finally {
             lock.unlockRead(stamp);
         }
@@ -207,6 +216,9 @@ public class ConcurrentWidgetService implements WidgetService {
     }
 
     private static void assertPageableIsValid(PageableDto dto) {
+        if (dto == null) {
+            throw new NullPointerException("Param `pageableDto` must be not null");
+        }
         if (dto.getPage() <= 0) {
             throw new IllegalArgumentException("Field `page` must be greater than 0");
         }
@@ -214,6 +226,21 @@ public class ConcurrentWidgetService implements WidgetService {
             throw new IllegalArgumentException("Field `size` must be greater than 0");
         }
 
+    }
+
+    private static void assertFilterIsValid(Filter filter) {
+        if (filter == null) {
+            throw new NullPointerException("Param `filter` must be not null");
+        }
+
+        if ((filter.getBottomLeftX() != null && filter.getUpperRightX() != null)
+                && (filter.getBottomLeftX() >= filter.getUpperRightX())) {
+            throw new IllegalArgumentException("Field `bottomLeftX` must be less than `upperRightX` in param `filter`");
+        }
+        if ((filter.getBottomLeftY() != null && filter.getUpperRightY() != null)
+                && (filter.getBottomLeftY() >= filter.getUpperRightY())) {
+            throw new IllegalArgumentException("Field `bottomLeftY` must be less than `upperRightY` in param `filter`");
+        }
     }
 
     private static Widget convertFromDto(WidgetDto dto) {

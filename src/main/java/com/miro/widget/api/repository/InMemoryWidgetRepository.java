@@ -1,6 +1,8 @@
 package com.miro.widget.api.repository;
 
 import com.miro.widget.api.contract.WidgetRepository;
+import com.miro.widget.api.model.entity.Point;
+import com.miro.widget.api.model.entity.Rectangle;
 import com.miro.widget.api.model.entity.Widget;
 import org.springframework.stereotype.Component;
 
@@ -15,6 +17,7 @@ public class InMemoryWidgetRepository implements WidgetRepository {
 
     private Map<UUID, Widget> widgetMapById = new HashMap<>();
     private NavigableMap<Long, Widget> widgetMapByZIndex = new TreeMap<>();
+    private NavigableMap<Long, Set<Widget>> widgetMapByBottomLeftXCoordinate = new TreeMap<>();
 
     @Override
     public long count() {
@@ -52,6 +55,17 @@ public class InMemoryWidgetRepository implements WidgetRepository {
     }
 
     @Override
+    public Set<Widget> findAllInAreaSortByZIndex(Point bottomLeft, Point upperRight, long skip, long take) {
+        Rectangle filterRectangle = new Rectangle(bottomLeft, upperRight);
+        return widgetMapByBottomLeftXCoordinate.subMap(bottomLeft.getXCoordinate(), upperRight.getXCoordinate()).entrySet().stream()
+                .flatMap(entry -> entry.getValue().stream())
+                .filter(filterRectangle::contains)
+                .skip(skip)
+                .limit(take)
+                .collect(Collectors.toCollection(() -> new TreeSet<>(DEFAULT_COMPARATOR)));
+    }
+
+    @Override
     public NavigableSet<Widget> findAllSortByZIndexGreaterThanOrEqualTo(long index) {
         return widgetMapByZIndex.tailMap(index, true).values().stream()
                 .collect(Collectors.toCollection(() -> new TreeSet<>(DEFAULT_COMPARATOR)));
@@ -59,27 +73,41 @@ public class InMemoryWidgetRepository implements WidgetRepository {
 
     @Override
     public void saveOrUpdate(Widget widget) {
-        widgetMapById.put(widget.getId(), widget);
+        Widget removed = widgetMapById.put(widget.getId(), widget);
         widgetMapByZIndex.put(widget.getZIndex(), widget);
+        if (removed != null) {
+            removeInMapByBottomLeftXCoordinate(removed);
+        }
+        widgetMapByBottomLeftXCoordinate.putIfAbsent(widget.getBottomLeftPoint().getXCoordinate(), new TreeSet<>(DEFAULT_COMPARATOR));
+        widgetMapByBottomLeftXCoordinate.get(widget.getBottomLeftPoint().getXCoordinate()).add(widget);
     }
 
     @Override
     public void saveOrUpdate(Collection<Widget> widgets) {
-        widgets.forEach(element -> {
-            widgetMapById.put(element.getId(), element);
-            widgetMapByZIndex.put(element.getZIndex(), element);
-        });
+        widgets.forEach(this::saveOrUpdate);
     }
 
     @Override
     public Widget remove(Widget widget) {
-        widgetMapById.remove(widget.getId());
-        return widgetMapByZIndex.remove(widget.getZIndex());
+        Widget removed = widgetMapById.remove(widget.getId());
+        widgetMapByZIndex.remove(widget.getZIndex());
+        if (removed != null) {
+            removeInMapByBottomLeftXCoordinate(removed);
+        }
+        return removed;
+    }
+
+    private void removeInMapByBottomLeftXCoordinate(Widget widget) {
+        Set<Widget> widgets = widgetMapByBottomLeftXCoordinate.get(widget.getBottomLeftPoint().getXCoordinate());
+        if (widgets != null) {
+            widgets.remove(widget);
+        }
     }
 
     @Override
     public void removeAll() {
         widgetMapById.clear();
         widgetMapByZIndex.clear();
+        widgetMapByBottomLeftXCoordinate.clear();
     }
 }

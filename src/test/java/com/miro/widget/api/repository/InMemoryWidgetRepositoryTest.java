@@ -1,6 +1,7 @@
 package com.miro.widget.api.repository;
 
 import com.miro.widget.api.contract.WidgetRepository;
+import com.miro.widget.api.model.entity.Point;
 import com.miro.widget.api.model.entity.Widget;
 import org.junit.Assert;
 import org.junit.Before;
@@ -119,6 +120,26 @@ public class InMemoryWidgetRepositoryTest {
     }
 
     @Test
+    public void findAllInAreaSortByZIndex_WithRangeParamsWhenWidgetsWereSaved_ReturnSortedWidgetsInArea() {
+        Set<Widget> test = createWidgets(4);
+        repository.saveOrUpdate(test);
+
+        Set<Widget> testable = repository.findAllInAreaSortByZIndex(createFilterBottomLeftPoint(), createFilterUpperRightPoint(), 2, 2);
+        assertEquals(test.stream().skip(2).limit(2).collect(Collectors.toSet()), testable);
+    }
+
+    @Test
+    public void findAllInAreaSortByZIndex_WhenOnlyOneWidgetIsNotMatch_ReturnWidgetInArea() {
+        Set<Widget> test = createWidgets(4);
+        Widget widget = createWidget(300, 200);
+        repository.saveOrUpdate(widget);
+        repository.saveOrUpdate(test);
+
+        Set<Widget> testable = repository.findAllInAreaSortByZIndex(createFilterBottomLeftPoint(), createFilterUpperRightPoint(), 0, 5);
+        assertEquals(test, testable);
+    }
+
+    @Test
     public void findAllWithZIndexGreaterThanOrEqualTo_WhenWidgetsWereNotSaved_ReturnEmptyNavigableMap() {
         assertEquals(Collections.emptyNavigableSet(), repository.findAllSortByZIndexGreaterThanOrEqualTo(1));
     }
@@ -155,6 +176,14 @@ public class InMemoryWidgetRepositoryTest {
         assertEquals(test.getModifiedAt(), removed.getModifiedAt());
     }
 
+    private static Point createFilterBottomLeftPoint() {
+        return new Point(0, 0);
+    }
+
+    private static Point createFilterUpperRightPoint() {
+        return new Point(300, 200);
+    }
+
     private static Set<Widget> createWidgets(int limit) {
         return Stream
                 .iterate(0L, i -> i + 1)
@@ -163,14 +192,25 @@ public class InMemoryWidgetRepositoryTest {
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
+    private static Widget createWidget(long xCoordinate, long yCoordinate) {
+        return new Widget(
+                UUID.randomUUID(),
+                xCoordinate,
+                yCoordinate,
+                5L,
+                100,
+                100
+        );
+    }
+
     private static Widget createWidget(Long zIndex) {
         return new Widget(
                 UUID.randomUUID(),
-                40,
+                50,
                 50,
                 zIndex,
                 100,
-                50
+                100
         );
     }
 }
